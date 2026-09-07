@@ -2,6 +2,8 @@ using System.Text.Json;
 using Bullgate.Access.Application.Bootstrap;
 using Bullgate.Access.Domain.Topology;
 
+namespace Bullgate.Access.Cli;
+
 /// <summary>
 /// Root of the strict version 2 bootstrap document and adapter to the application-layer
 /// topology command.

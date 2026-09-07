@@ -61,6 +61,19 @@ jobs:
         shell: pwsh
         run: dotnet restore Bullgate.Access.slnx
 
+      # A pasta Migrations/ contem apenas arquivo gerado pelo EF Core: a
+      # migration, seu Designer e o ModelSnapshot. Analisar codigo gerado
+      # produz achado que nao se corrige, porque a proxima geracao o
+      # reescreve. O AccessDbContextFactory.cs fica fora da pasta e segue
+      # analisado.
+      # O token nao e interpolado no bloco run de proposito. ${{ }} e
+      # resolvido antes do shell existir, o que grava o valor literal no
+      # script gerado. O scanner le SONAR_TOKEN do ambiente, declarado em
+      # env: abaixo.
+      # A cobertura ignora o projeto de migrations inteiro. Migration nao se
+      # testa, e a factory de design-time so e usada pelo dotnet ef, fora do
+      # runtime. O arquivo continua analisado para issues: coverage.exclusions
+      # so retira da conta de cobertura.
       - name: Begin SonarQube analysis
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
@@ -70,9 +83,10 @@ jobs:
           & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin `
             /k:"torphi-contise_bullgate-access" `
             /o:"torphi-contise" `
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
             /d:sonar.cs.opencover.reportsPaths="TestResults/**/coverage.opencover.xml" `
-            /d:sonar.cs.vstest.reportsPaths="TestResults/**/*.trx"
+            /d:sonar.cs.vstest.reportsPaths="TestResults/**/*.trx" `
+            /d:sonar.exclusions="src/Bullgate.Access.Migrations/Migrations/**" `
+            /d:sonar.coverage.exclusions="src/Bullgate.Access.Migrations/**"
 
       - name: Build
         shell: pwsh
@@ -94,5 +108,4 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: pwsh
         run: |
-          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" end `
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" end

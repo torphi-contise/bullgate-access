@@ -16,6 +16,7 @@ namespace Bullgate.Access.IntegrationTests;
 public sealed class SessionEndpointTests(PostgreSqlFixture database)
     : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
+    private static readonly string[] EnvironmentKeys = ["primary", "secondary"];
     private readonly AdjustableTimeProvider clock = new(
         new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero));
     private AccessApiFactory api = null!;
@@ -451,7 +452,7 @@ public sealed class SessionEndpointTests(PostgreSqlFixture database)
             phoneEnabled: registrationRequired,
             phoneRequired: registrationRequired,
             phoneVerificationEnabled: registrationRequired);
-        var environments = new[] { "primary", "secondary" }
+        var environments = EnvironmentKeys
             .Select(key => new BootstrapEnvironmentDefinition(
                 key,
                 key,

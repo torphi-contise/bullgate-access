@@ -17,6 +17,8 @@ namespace Bullgate.Access.IntegrationTests;
 public sealed class PasswordRecoveryServiceIntegrationTests(PostgreSqlFixture database)
     : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
+    private static readonly string[] ConcurrentPasswords =
+        ["concurrent-password-one", "concurrent-password-two"];
     private const string RecoveryUrl = "https://baybo.app/reset-password";
     private readonly AdjustableTimeProvider clock = new(
         DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
@@ -226,11 +228,7 @@ public sealed class PasswordRecoveryServiceIntegrationTests(PostgreSqlFixture da
         }
         Assert.True(issued.Succeeded);
 
-        var attempts = new[]
-        {
-            "concurrent-password-one",
-            "concurrent-password-two",
-        }.Select(async password =>
+        var attempts = ConcurrentPasswords.Select(async password =>
         {
             var response = await client.PostAsJsonAsync(
                 "/v1/auth/password/recovery/reset",

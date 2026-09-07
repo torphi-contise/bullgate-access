@@ -429,7 +429,7 @@ public sealed partial class PhoneConflictRecoveryIntegrationTests
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "managePhone",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = previousToken,

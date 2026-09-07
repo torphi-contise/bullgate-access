@@ -15,6 +15,8 @@ namespace Bullgate.Access.UnitTests;
 
 public sealed class AccessFlowServicePhoneConfirmationTests
 {
+    private static readonly JsonSerializerOptions WebJsonOptions =
+        new(JsonSerializerDefaults.Web);
     private const string Code = "696056";
     private static readonly DateTimeOffset Now =
         new(2026, 9, 3, 22, 29, 56, TimeSpan.Zero);
@@ -58,7 +60,7 @@ public sealed class AccessFlowServicePhoneConfirmationTests
             snapshot.ExpiresAt,
             JsonSerializer.Serialize(
                 snapshot,
-                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+                WebJsonOptions));
         var challenge = new StoredProofChallenge(
             Guid.NewGuid(),
             ProofChallengeType.PhonePossession,

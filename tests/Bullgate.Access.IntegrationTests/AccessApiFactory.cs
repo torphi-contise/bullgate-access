@@ -249,10 +249,7 @@ internal sealed class AdjustableTimeProvider(DateTimeOffset initialUtc)
 
     public void Advance(TimeSpan amount)
     {
-        if (amount < TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(amount));
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(amount, TimeSpan.Zero);
 
         Interlocked.Add(ref utcTicks, amount.Ticks);
     }

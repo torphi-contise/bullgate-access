@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bullgate.Access.Application;
 using Bullgate.Access.Application.Bootstrap;
+using Bullgate.Access.Cli;
 using Bullgate.Access.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -32,15 +33,15 @@ static async Task<int> RunAsync(string[] args)
         var output = JsonSerializer.Serialize(result, JsonOptions.Output);
         // Newly issued clear credentials appear only in this result. Operators must
         // capture stdout as secret material rather than route it to ordinary logs.
-        Console.Out.WriteLine(output);
+        await Console.Out.WriteLineAsync(output);
 
         if (result.IssuedCredentials.Count == 0)
         {
-            Console.Error.WriteLine("Bootstrap completed; no new credentials were issued.");
+            await Console.Error.WriteLineAsync("Bootstrap completed; no new credentials were issued.");
         }
         else
         {
-            Console.Error.WriteLine(
+            await Console.Error.WriteLineAsync(
                 $"Bootstrap completed; {result.IssuedCredentials.Count} credential(s) issued once.");
         }
 
@@ -48,28 +49,28 @@ static async Task<int> RunAsync(string[] args)
     }
     catch (CliUsageException exception)
     {
-        Console.Error.WriteLine(exception.Message);
+        await Console.Error.WriteLineAsync(exception.Message);
         WriteUsage();
         return 2;
     }
     catch (JsonException exception)
     {
-        Console.Error.WriteLine($"Invalid bootstrap manifest: {exception.Message}");
+        await Console.Error.WriteLineAsync($"Invalid bootstrap manifest: {exception.Message}");
         return 2;
     }
     catch (BootstrapTopologyException exception)
     {
-        Console.Error.WriteLine($"Bootstrap rejected: {exception.Message}");
+        await Console.Error.WriteLineAsync($"Bootstrap rejected: {exception.Message}");
         return 2;
     }
     catch (ArgumentException exception)
     {
-        Console.Error.WriteLine($"Bootstrap rejected: {exception.Message}");
+        await Console.Error.WriteLineAsync($"Bootstrap rejected: {exception.Message}");
         return 2;
     }
     catch (Exception exception)
     {
-        Console.Error.WriteLine($"Bootstrap failed: {exception.Message}");
+        await Console.Error.WriteLineAsync($"Bootstrap failed: {exception.Message}");
         return 1;
     }
 }
@@ -110,26 +111,29 @@ static async Task<BootstrapManifest> ReadManifestAsync(string path)
 static void WriteUsage() => Console.Error.WriteLine(
     "Usage: Bullgate.Access.Cli bootstrap --manifest <path-to-json>");
 
-/// <summary>Represents command-line input that is invalid before bootstrap begins.</summary>
-internal sealed class CliUsageException(string message) : Exception(message);
-
-/// <summary>
-/// Defines strict manifest input and deterministic machine-readable result formats.
-/// </summary>
-internal static class JsonOptions
+namespace Bullgate.Access.Cli
 {
-    public static JsonSerializerOptions Input { get; } = new()
-    {
-        // Manifest property names form a versioned contract. Case-insensitive or unknown
-        // members could turn an operator typo into silently ignored security policy.
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = false,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-    };
+    /// <summary>Represents command-line input that is invalid before bootstrap begins.</summary>
+    internal sealed class CliUsageException(string message) : Exception(message);
 
-    public static JsonSerializerOptions Output { get; } = new()
+    /// <summary>
+    /// Defines strict manifest input and deterministic machine-readable result formats.
+    /// </summary>
+    internal static class JsonOptions
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-    };
+        public static JsonSerializerOptions Input { get; } = new()
+        {
+            // Manifest property names form a versioned contract. Case-insensitive or unknown
+            // members could turn an operator typo into silently ignored security policy.
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = false,
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        };
+
+        public static JsonSerializerOptions Output { get; } = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true,
+        };
+    }
 }
