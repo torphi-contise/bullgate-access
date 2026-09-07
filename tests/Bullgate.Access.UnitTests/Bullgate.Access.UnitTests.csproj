@@ -25,6 +25,14 @@
     <ProjectReference Include="..\..\src\Bullgate.Access.Domain\Bullgate.Access.Domain.csproj" />
     <ProjectReference Include="..\..\src\Bullgate.Access.Application\Bullgate.Access.Application.csproj" />
     <ProjectReference Include="..\..\src\Bullgate.Access.Infrastructure\Bullgate.Access.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Bullgate.Access.Cli\Bullgate.Access.Cli.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- O exemplo publicado no repositorio e tratado como fixture: o teste garante
+         que o documento que o operador copia continua desserializando e convertendo. -->
+    <Content Include="..\..\examples\bootstrap.development.example.json"
+             Link="bootstrap.development.example.json"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

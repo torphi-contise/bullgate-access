@@ -70,10 +70,12 @@ jobs:
       # resolvido antes do shell existir, o que grava o valor literal no
       # script gerado. O scanner le SONAR_TOKEN do ambiente, declarado em
       # env: abaixo.
-      # A cobertura ignora o projeto de migrations inteiro. Migration nao se
+      # A cobertura ignora o projeto de migrations inteiro e o Program.cs do CLI.
+      # Migration nao se
       # testa, e a factory de design-time so e usada pelo dotnet ef, fora do
       # runtime. O arquivo continua analisado para issues: coverage.exclusions
-      # so retira da conta de cobertura.
+      # so retira da conta de cobertura. O Program.cs do CLI e apenas composicao:
+      # ele monta o host e delega ao BootstrapCli, que tem cobertura propria.
       - name: Begin SonarQube analysis
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
@@ -86,7 +88,7 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths="TestResults/**/coverage.opencover.xml" `
             /d:sonar.cs.vstest.reportsPaths="TestResults/**/*.trx" `
             /d:sonar.exclusions="src/Bullgate.Access.Migrations/Migrations/**" `
-            /d:sonar.coverage.exclusions="src/Bullgate.Access.Migrations/**"
+            /d:sonar.coverage.exclusions="src/Bullgate.Access.Migrations/**,src/Bullgate.Access.Cli/Program.cs"
 
       - name: Build
         shell: pwsh
