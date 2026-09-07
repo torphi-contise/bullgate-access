@@ -1,0 +1,98 @@
+name: SonarQube
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, test and analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Set up JDK 21
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          java-version: 21
+          distribution: zulu
+
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.400
+
+      - name: Cache SonarQube Cloud packages
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache SonarQube Cloud scanner
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        id: cache-sonar-scanner
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/scanner
+          key: ${{ runner.os }}-sonar-scanner
+          restore-keys: ${{ runner.os }}-sonar-scanner
+
+      - name: Install SonarQube Cloud scanner
+        if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && steps.cache-sonar-scanner.outputs.cache-hit != 'true' }}
+        shell: pwsh
+        run: |
+          New-Item -Path "${{ runner.temp }}/scanner" -ItemType Directory -Force
+          dotnet tool update dotnet-sonarscanner --tool-path "${{ runner.temp }}/scanner"
+
+      - name: Restore dependencies
+        shell: pwsh
+        run: dotnet restore Bullgate.Access.slnx
+
+      - name: Begin SonarQube analysis
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: pwsh
+        run: |
+          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin `
+            /k:"torphi-contise_bullgate-access" `
+            /o:"torphi-contise" `
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+            /d:sonar.cs.opencover.reportsPaths="TestResults/**/coverage.opencover.xml" `
+            /d:sonar.cs.vstest.reportsPaths="TestResults/**/*.trx"
+
+      - name: Build
+        shell: pwsh
+        run: dotnet build Bullgate.Access.slnx --configuration Release --no-restore --no-incremental
+
+      - name: Test with coverage
+        shell: pwsh
+        run: |
+          dotnet test Bullgate.Access.slnx `
+          --configuration Release `
+          --no-build `
+          --logger "trx" `
+          --results-directory TestResults `
+          --collect:"XPlat Code Coverage;Format=opencover"
+
+      - name: End SonarQube analysis
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: pwsh
+        run: |
+          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" end `
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
