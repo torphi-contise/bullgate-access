@@ -1,0 +1,145 @@
+{
+  "manifestVersion": 2,
+  "workspace": {
+    "key": "acpma",
+    "name": "ACPMA",
+    "apps": [
+      {
+        "key": "baybo",
+        "name": "BAYBO",
+        "realms": [
+          {
+            "key": "baybo-development",
+            "name": "BAYBO Development"
+          }
+        ],
+        "environments": [
+          {
+            "key": "development",
+            "name": "Development",
+            "realmKey": "baybo-development",
+            "accessPolicy": {
+              "identifiers": {
+                "email": {
+                  "enabled": true,
+                  "required": true,
+                  "verification": {
+                    "enabled": false
+                  }
+                },
+                "phone": {
+                  "enabled": true,
+                  "required": false,
+                  "verification": {
+                    "enabled": true,
+                    "provider": "twilio-verify"
+                  }
+                }
+              },
+              "authenticators": {
+                "password": true,
+                "google": true,
+                "apple": false
+              }
+            },
+            "verificationPolicy": {
+              "codeLifetimeMinutes": 10,
+              "maxAttempts": 5,
+              "maxRequestsPerHourPerIdentity": 5,
+              "resendCooldownSeconds": 120,
+              "phoneConflictLifetimeMinutes": 15,
+              "phoneConflictEmailMaxAttempts": 5
+            },
+            "recoveryPolicy": {
+              "passwordRecoveryUrl": "https://baybo.app/reset-password",
+              "tokenLifetimeMinutes": 60,
+              "maxRequestsPerHourPerIdentity": 5,
+              "phoneCodeLifetimeMinutes": 10,
+              "phoneCodeMaxAttempts": 5,
+              "phoneMaxRequestsPerHourPerIdentity": 5,
+              "phoneResendCooldownSeconds": 120
+            },
+            "providers": {
+              "smtp": {
+                "host": "replace-with-smtp-host",
+                "port": 587,
+                "user": "replace-with-smtp-user",
+                "password": "replace-with-smtp-password",
+                "fromAddress": "access@example.test",
+                "fromName": "BAYBO",
+                "useStartTls": true,
+                "useSsl": false
+              },
+              "twilioVerify": {
+                "keySid": "replace-with-twilio-key-sid",
+                "keySecret": "replace-with-twilio-key-secret",
+                "serviceSid": "replace-with-twilio-service-sid",
+                "channel": "sms",
+                "locale": "pt-BR",
+                "passwordResetTemplateSid": "replace-with-twilio-reset-template-sid"
+              },
+              "google": {
+                "clientId": "replace-with-google-client-id"
+              }
+            },
+            "developmentBypass": {
+              "enabled": true,
+              "phone": "+15555550123",
+              "code": "123456"
+            },
+            "publicConfiguration": {
+              "version": 1,
+              "values": {
+                "app": "baybo",
+                "environment": "development"
+              }
+            },
+            "integrationClients": [
+              {
+                "key": "api",
+                "name": "BAYBO API",
+                "permissions": [
+                  "access:flows:execute",
+                  "access:sessions:introspect",
+                  "access:sessions:revoke-current",
+                  "access:identities:manage-current",
+                  "access:identities:read"
+                ]
+              }
+            ],
+            "applicationClients": [
+              {
+                "key": "android-development",
+                "name": "BAYBO Android development",
+                "platform": "android",
+                "applicationId": "app.baybo.dev",
+                "signingIdentity": "sha256:fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c",
+                "smsRetrieverAppHash": "A6U92ovJLGE",
+                "publicConfiguration": {
+                  "googleClientId": "replace-with-android-google-client-id"
+                }
+              },
+              {
+                "key": "ios-development",
+                "name": "BAYBO iOS development",
+                "platform": "ios",
+                "applicationId": "app.baybo",
+                "publicConfiguration": {
+                  "googleClientId": "replace-with-ios-google-client-id"
+                }
+              },
+              {
+                "key": "web-development",
+                "name": "BAYBO Web development",
+                "platform": "web",
+                "publicConfiguration": {
+                  "googleClientId": "replace-with-web-google-client-id"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

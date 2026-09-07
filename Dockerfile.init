@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1.7
+
+ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0.400
+ARG DOTNET_ASPNET_IMAGE=mcr.microsoft.com/dotnet/aspnet:10.0
+
+FROM ${DOTNET_SDK_IMAGE} AS publish
+WORKDIR /src
+
+COPY global.json NuGet.Config Directory.Build.props Directory.Packages.props ./
+COPY src/Bullgate.Access.Domain/Bullgate.Access.Domain.csproj src/Bullgate.Access.Domain/
+COPY src/Bullgate.Access.Application/Bullgate.Access.Application.csproj src/Bullgate.Access.Application/
+COPY src/Bullgate.Access.Infrastructure/Bullgate.Access.Infrastructure.csproj src/Bullgate.Access.Infrastructure/
+COPY src/Bullgate.Access.Migrations/Bullgate.Access.Migrations.csproj src/Bullgate.Access.Migrations/
+COPY src/Bullgate.Access.Cli/Bullgate.Access.Cli.csproj src/Bullgate.Access.Cli/
+
+RUN --mount=type=cache,id=bullgate-access-init-nuget,target=/root/.nuget/packages \
+    dotnet restore src/Bullgate.Access.Migrations/Bullgate.Access.Migrations.csproj \
+    && dotnet restore src/Bullgate.Access.Cli/Bullgate.Access.Cli.csproj
+
+COPY src/Bullgate.Access.Domain/ src/Bullgate.Access.Domain/
+COPY src/Bullgate.Access.Application/ src/Bullgate.Access.Application/
+COPY src/Bullgate.Access.Infrastructure/ src/Bullgate.Access.Infrastructure/
+COPY src/Bullgate.Access.Migrations/ src/Bullgate.Access.Migrations/
+COPY src/Bullgate.Access.Cli/ src/Bullgate.Access.Cli/
+
+RUN --mount=type=cache,id=bullgate-access-init-nuget,target=/root/.nuget/packages \
+    dotnet publish src/Bullgate.Access.Migrations/Bullgate.Access.Migrations.csproj \
+      --configuration Release --no-restore --self-contained false \
+      -p:UseAppHost=false --output /app/migrations \
+    && dotnet publish src/Bullgate.Access.Cli/Bullgate.Access.Cli.csproj \
+      --configuration Release --no-restore --self-contained false \
+      -p:UseAppHost=false --output /app/cli
+
+FROM ${DOTNET_ASPNET_IMAGE} AS final
+WORKDIR /tools
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=publish /app/migrations/ /tools/migrations/
+COPY --from=publish /app/cli/ /tools/cli/
+COPY scripts/compose-initialize.sh /usr/local/bin/bullgate-access-initialize
+
+RUN chmod 0755 /usr/local/bin/bullgate-access-initialize
+
+ENTRYPOINT ["/usr/local/bin/bullgate-access-initialize"]

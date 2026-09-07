@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <UserSecretsId>bullgate-access-api-development</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bullgate.Access.Application\Bullgate.Access.Application.csproj" />
+    <ProjectReference Include="..\Bullgate.Access.Infrastructure\Bullgate.Access.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bullgate.Access.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

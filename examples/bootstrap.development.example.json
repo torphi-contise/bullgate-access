@@ -1,0 +1,119 @@
+{
+  "manifestVersion": 2,
+  "workspace": {
+    "key": "example",
+    "name": "Example workspace",
+    "apps": [
+      {
+        "key": "example-app",
+        "name": "Example app",
+        "realms": [
+          {
+            "key": "example-development",
+            "name": "Example development realm"
+          }
+        ],
+        "environments": [
+          {
+            "key": "development",
+            "name": "Development",
+            "realmKey": "example-development",
+            "accessPolicy": {
+              "identifiers": {
+                "email": {
+                  "enabled": true,
+                  "required": true,
+                  "verification": {
+                    "enabled": false
+                  }
+                },
+                "phone": {
+                  "enabled": false,
+                  "required": false,
+                  "verification": {
+                    "enabled": false
+                  }
+                }
+              },
+              "authenticators": {
+                "password": true,
+                "google": false,
+                "apple": false
+              }
+            },
+            "verificationPolicy": {
+              "codeLifetimeMinutes": 10,
+              "maxAttempts": 5,
+              "maxRequestsPerHourPerIdentity": 5,
+              "resendCooldownSeconds": 120,
+              "phoneConflictLifetimeMinutes": 15,
+              "phoneConflictEmailMaxAttempts": 5
+            },
+            "recoveryPolicy": {
+              "passwordRecoveryUrl": null,
+              "tokenLifetimeMinutes": 60,
+              "maxRequestsPerHourPerIdentity": 5,
+              "phoneCodeLifetimeMinutes": 10,
+              "phoneCodeMaxAttempts": 5,
+              "phoneMaxRequestsPerHourPerIdentity": 5,
+              "phoneResendCooldownSeconds": 120
+            },
+            "providers": {},
+            "developmentBypass": {
+              "enabled": false
+            },
+            "publicConfiguration": {
+              "version": 1,
+              "values": {}
+            },
+            "integrationClients": [
+              {
+                "key": "api",
+                "name": "Example API",
+                "permissions": [
+                  "access:flows:execute",
+                  "access:sessions:introspect",
+                  "access:sessions:revoke-current",
+                  "access:identities:manage-current"
+                ]
+              },
+              {
+                "key": "backoffice",
+                "name": "Example Backoffice",
+                "permissions": [
+                  "access:identities:read",
+                  "access:identities:block",
+                  "access:identities:unblock",
+                  "access:sessions:revoke-all"
+                ]
+              }
+            ],
+            "applicationClients": [
+              {
+                "key": "android-development",
+                "name": "Example Android development",
+                "platform": "android",
+                "applicationId": "com.example.app",
+                "signingIdentity": "sha256:replace-with-certificate-fingerprint",
+                "publicConfiguration": {}
+              },
+              {
+                "key": "ios-development",
+                "name": "Example iOS development",
+                "platform": "ios",
+                "applicationId": "com.example.app",
+                "publicConfiguration": {}
+              },
+              {
+                "key": "web-development",
+                "name": "Example Web development",
+                "platform": "web",
+                "publicConfiguration": {}
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

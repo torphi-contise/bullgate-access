@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bullgate.Access.Api/Bullgate.Access.Api.csproj" />
+    <Project Path="src/Bullgate.Access.Application/Bullgate.Access.Application.csproj" />
+    <Project Path="src/Bullgate.Access.Cli/Bullgate.Access.Cli.csproj" />
+    <Project Path="src/Bullgate.Access.Domain/Bullgate.Access.Domain.csproj" />
+    <Project Path="src/Bullgate.Access.Infrastructure/Bullgate.Access.Infrastructure.csproj" />
+    <Project Path="src/Bullgate.Access.Migrations/Bullgate.Access.Migrations.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bullgate.Access.IntegrationTests/Bullgate.Access.IntegrationTests.csproj" />
+    <Project Path="tests/Bullgate.Access.UnitTests/Bullgate.Access.UnitTests.csproj" />
+  </Folder>
+</Solution>

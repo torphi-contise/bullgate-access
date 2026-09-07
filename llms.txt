@@ -1,0 +1,38 @@
+# Bullgate Access
+
+> Canonical entry point for language models and retrieval systems.
+
+Bullgate Access is a self-hosted identity and access service. Current source is
+authoritative for implementation details. Local Docker assets do not imply a
+public production deployment.
+
+## Start here
+
+- [Documentation map](docs/README.md)
+- [AI grounding context](docs/ai/context.md)
+- [Controlled glossary](docs/ai/glossary.md)
+- [Project status](docs/project-status.md)
+
+## Technical documentation
+
+- [Architecture](docs/architecture.md)
+- [Integration guide](docs/integration-guide.md)
+- [Domain model](docs/domain-model.md)
+- [AccessFlow protocol](docs/access-flow.md)
+- [Concurrency and idempotency](docs/concurrency-and-idempotency.md)
+- [Failure model](docs/failure-model.md)
+- [HTTP API](docs/http-api.md)
+- [Configuration and bootstrap](docs/configuration.md)
+- [Security model](docs/security-model.md)
+- [Code commenting guide](docs/commenting-guide.md)
+- [Decision catalog](docs/decision-catalog.md)
+- [Open-source governance](docs/open-source-governance.md)
+
+## Retrieval behavior
+
+- [AI retrieval and answer guide](docs/ai/retrieval-guide.md)
+- [Baseline AI evaluation set](docs/ai/evaluation-set.md)
+
+Use current source and OpenAPI to verify exact behavior. Never expose or
+fabricate credentials, tokens, capabilities, personal data, deployment state,
+or roadmap commitments.

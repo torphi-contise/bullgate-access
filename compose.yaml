@@ -1,0 +1,71 @@
+name: baybo-bullgate-correct-access
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: bullgate_access
+      POSTGRES_USER: bullgate_access
+      POSTGRES_PASSWORD: bullgate_access_dev
+    ports:
+      - "127.0.0.1:${BULLGATE_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - bullgate-access-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  access-init:
+    image: bullgate-access-init:local
+    build:
+      context: .
+      dockerfile: Dockerfile.init
+    environment:
+      ConnectionStrings__AccessDatabase: Host=postgres;Port=5432;Database=bullgate_access;Username=bullgate_access;Password=bullgate_access_dev
+      BULLGATE_BOOTSTRAP_MANIFEST: /bootstrap/bootstrap.development.example.json
+      BULLGATE_MASTER_KEY_FILE: /run/bullgate-access-master/master-key
+      BULLGATE_INTEGRATION_CREDENTIAL_FILE: /run/bullgate-access-integration/integration-credential
+      BULLGATE_INTEGRATION_CLIENT_PATH: example/example-app/development/integration-clients/api
+    volumes:
+      - ./examples/bootstrap.development.example.json:/bootstrap/bootstrap.development.example.json:ro
+      - bullgate-access-master-key:/run/bullgate-access-master
+      - bullgate-access-integration:/run/bullgate-access-integration
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  access:
+    image: bullgate-access:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__AccessDatabase: Host=postgres;Port=5432;Database=bullgate_access;Username=bullgate_access;Password=bullgate_access_dev
+      BULLGATE_MASTER_KEY_FILE: /run/bullgate-access/master-key
+    ports:
+      - "127.0.0.1:${BULLGATE_ACCESS_PORT:-5227}:8080"
+    volumes:
+      - bullgate-access-master-key:/run/bullgate-access:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080;
+          printf "GET /health/live HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3;
+          grep -q "200 OK" <&3'
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      access-init:
+        condition: service_completed_successfully
+
+volumes:
+  bullgate-access-postgres:
+  bullgate-access-master-key:
+  bullgate-access-integration:

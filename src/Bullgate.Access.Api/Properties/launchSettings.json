@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5227",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Bullgate__MasterKey": "QnVsbGdhdGUtZGV2ZWxvcG1lbnQtbWFzdGVyLWtleSE="
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "https://localhost:7148;http://localhost:5227",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Bullgate__MasterKey": "QnVsbGdhdGUtZGV2ZWxvcG1lbnQtbWFzdGVyLWtleSE="
+      }
+    }
+  }
+}
