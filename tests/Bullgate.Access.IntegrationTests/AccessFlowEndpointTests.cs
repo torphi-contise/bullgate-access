@@ -16,6 +16,8 @@ namespace Bullgate.Access.IntegrationTests;
 public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
     : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
+    private static readonly int[] ProtocolVersion1 = [1];
+    private static readonly int[] ProtocolVersions1And2 = [1, 2];
     private const string CapabilityHeader = "Bullgate-Flow-Capability";
     private static readonly TimeSpan FlowDuration = TimeSpan.FromMinutes(30);
 
@@ -127,7 +129,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = startRequestId,
-                protocolVersions = new[] { 1, 2 },
+                protocolVersions = ProtocolVersions1And2,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = registrationToken,
@@ -366,7 +368,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "managePhone",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = sourceSessionToken,
@@ -502,7 +504,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "managePhone",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = sourceSessionToken,
@@ -586,7 +588,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = registrationToken,
@@ -644,7 +646,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = registrationToken,
@@ -1692,7 +1694,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = resumeRequestId,
-                protocolVersions = new[] { 1, 2 },
+                protocolVersions = ProtocolVersions1And2,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = current.SourceSessionToken,
@@ -1974,7 +1976,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = registrationToken,
@@ -2145,7 +2147,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = requestId ?? Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent,
                 applicationClientKey = applicationClientKey ?? ApplicationClientKey,
                 sessionToken,

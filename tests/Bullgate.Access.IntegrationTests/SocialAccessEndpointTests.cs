@@ -14,6 +14,7 @@ namespace Bullgate.Access.IntegrationTests;
 public sealed class SocialAccessEndpointTests(PostgreSqlFixture database)
     : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
+    private static readonly int[] ProtocolVersion1 = [1];
     private const string ApplicationClientKey = "android-debug";
     private const string CapabilityHeader = "Bullgate-Flow-Capability";
     private AccessApiFactory api = null!;
@@ -504,7 +505,7 @@ public sealed class SocialAccessEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = firstRegistrationToken,

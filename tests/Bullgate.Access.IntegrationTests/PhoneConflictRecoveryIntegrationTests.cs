@@ -16,6 +16,7 @@ namespace Bullgate.Access.IntegrationTests;
 public sealed partial class PhoneConflictRecoveryIntegrationTests(PostgreSqlFixture database)
     : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
+    private static readonly int[] ProtocolVersion1 = [1];
     private const string CapabilityHeader = "Bullgate-Flow-Capability";
     private const string RecoveryUrl = "https://baybo.app/reset-password";
     private const string ApplicationClientKey = "android-debug";
@@ -533,7 +534,7 @@ public sealed partial class PhoneConflictRecoveryIntegrationTests(PostgreSqlFixt
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = new[] { 1 },
+                protocolVersions = ProtocolVersion1,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = registrationToken,

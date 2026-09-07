@@ -18,6 +18,8 @@ namespace Bullgate.Access.IntegrationTests;
 public sealed class EmailPasswordRegistrationBoundaryTests(PostgreSqlFixture database)
     : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
+    private static readonly string[] ErrorAndFieldNames = ["error", "field"];
+    private static readonly int[] ProtocolVersion1 = [1];
     private AccessApiFactory api = null!;
     private HttpClient client = null!;
     private HttpClient secondaryClient = null!;
@@ -518,7 +520,7 @@ public sealed class EmailPasswordRegistrationBoundaryTests(PostgreSqlFixture dat
         using var started = await client.PostAsJsonAsync("/v1/access/flows", new
         {
             requestId = Guid.NewGuid(),
-            protocolVersions = new[] { 1 },
+            protocolVersions = ProtocolVersion1,
             intent = "continueRegistration",
             applicationClientKey = "android-debug",
             sessionToken = resumed.Token,
@@ -745,7 +747,7 @@ public sealed class EmailPasswordRegistrationBoundaryTests(PostgreSqlFixture dat
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         var json = await response.Content.ReadAsStringAsync();
         using var body = JsonDocument.Parse(json);
-        Assert.Equal(new[] { "error", "field" },
+        Assert.Equal(ErrorAndFieldNames,
             body.RootElement.EnumerateObject().Select(item => item.Name).OrderBy(name => name).ToArray());
         Assert.Equal("invalid-credentials", body.RootElement.GetProperty("error").GetString());
         Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("field").ValueKind);
@@ -786,7 +788,7 @@ public sealed class EmailPasswordRegistrationBoundaryTests(PostgreSqlFixture dat
         Assert.Null(session.RevokedAt);
     }
 
-    private async Task AssertSessionActiveAsync(HttpClient caller, string token, bool expectedActive = true)
+    private static async Task AssertSessionActiveAsync(HttpClient caller, string token, bool expectedActive = true)
     {
         using var response = await caller.PostAsJsonAsync(
             "/v1/auth/session/introspect", new { sessionToken = token });
