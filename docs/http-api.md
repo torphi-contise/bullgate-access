@@ -2,7 +2,7 @@
 
 ## Authentication model
 
-Application routes authenticate a server-to-server integration credential as a
+Consumer `/v1` routes authenticate a server-to-server integration credential as a
 bearer token. Authentication resolves the workspace, app, environment, realm,
 integration client, and its permissions. Requests do not choose a realm.
 
@@ -29,8 +29,10 @@ not be cached by an intermediary.
 | `access:identities:manage-current` | Change the current identity's credentials or contacts and delete it. |
 | `access:identities:read` | Read an identity's email or phone inside the authenticated realm. |
 
-Additional permission constants exist for future administrative operations,
-but the current API does not expose a Bullgate administrative surface.
+The separate `/admin/v1` backend uses dedicated `BullgateAdmin` authentication,
+trusted human context and five Access-owned function keys. It is not authorized
+by consumer credentials. See [administrative HTTP contract](administration.md)
+for its routes, complete JSON replacement, revisions and mutation receipts.
 
 ## Routes
 

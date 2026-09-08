@@ -99,8 +99,13 @@ Prohibited claim: laboratory validation proves a public production deployment.
 
 ## 11. Where is the Bullgate admin API?
 
-Required fact: the current baseline intentionally has no Bullgate admin portal,
-operator model, or administrative API.
+Required facts: Access implements a separate `/admin/v1` backend for bounded
+identity reads, all-current-session revocation, Access-local erasure and complete
+configuration replacement. It requires the dedicated Admin service credential
+and exact trusted human/function context, not a consumer Bearer. See
+[administration](../administration.md). The real Bullgate Admin caller, profile
+integration and screens remain Iteration 009; Access owns no operator profile
+database and this backend is not an available Admin module or production claim.
 
 ## 12. How should a chatbot resolve disagreement between docs and code?
 

@@ -122,6 +122,12 @@ internal sealed class BootstrapManifest
                 var phone = Require(identifiers.Phone, $"{policyPath}.identifiers.phone");
                 Require(email.Verification, $"{policyPath}.identifiers.email.verification");
                 Require(phone.Verification, $"{policyPath}.identifiers.phone.verification");
+                if (identifiers.Cpf is not null)
+                {
+                    Require(
+                        identifiers.Cpf.Verification,
+                        $"{policyPath}.identifiers.cpf.verification");
+                }
                 Require(policy.Authenticators, $"{policyPath}.authenticators");
 
                 for (var clientIndex = 0;
@@ -175,7 +181,18 @@ internal sealed class BootstrapManifest
                 new AuthenticatorAccessPolicy(
                     policy.Authenticators.Password,
                     policy.Authenticators.Google,
-                    policy.Authenticators.Apple));
+                    policy.Authenticators.Apple),
+                policy.Identifiers.Cpf is null
+                    ? null
+                    : CreateIdentifierPolicy(policy.Identifiers.Cpf),
+                policy.CpfCollectionPosition switch
+                {
+                    null => null,
+                    "beforePhone" => CpfCollectionPosition.BeforePhone,
+                    "afterPhone" => CpfCollectionPosition.AfterPhone,
+                    _ => throw new ArgumentException(
+                        "cpfCollectionPosition must be 'beforePhone' or 'afterPhone'."),
+                });
         }
         catch (ArgumentException exception)
         {
@@ -311,14 +328,16 @@ internal sealed class BootstrapPublicConfigurationManifest
 /// <summary>Manifest identifier and authenticator policy for one environment.</summary>
 internal sealed class BootstrapAccessPolicyManifest
 {
+    public string? CpfCollectionPosition { get; init; }
     public required BootstrapIdentifierPoliciesManifest Identifiers { get; init; }
     public required BootstrapAuthenticatorPolicyManifest Authenticators { get; init; }
 }
 
-/// <summary>Manifest e-mail and phone policy pair.</summary>
+/// <summary>Manifest e-mail, optional CPF, and phone policies.</summary>
 internal sealed class BootstrapIdentifierPoliciesManifest
 {
     public required BootstrapIdentifierPolicyManifest Email { get; init; }
+    public BootstrapIdentifierPolicyManifest? Cpf { get; init; }
     public required BootstrapIdentifierPolicyManifest Phone { get; init; }
 }
 

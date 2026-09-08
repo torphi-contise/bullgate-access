@@ -15,6 +15,7 @@ questions about the service:
 5. The task-specific document:
    - integration: [`integration-guide.md`](integration-guide.md)
    - API transport: [`http-api.md`](http-api.md)
+   - Access administrative backend and trusted Admin calls: [`administration.md`](administration.md)
    - stateful journeys: [`access-flow.md`](access-flow.md)
    - proof challenges, attempts, and durable evidence:
      [`proof-lifecycle.md`](proof-lifecycle.md)

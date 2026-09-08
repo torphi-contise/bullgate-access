@@ -27,6 +27,7 @@ Bullgate Access makes those journeys explicit and auditable. It provides:
 - email/password registration and login;
 - Google and Apple authentication and account linking;
 - opaque, revocable registration and product sessions;
+- policy-driven CPF and birth-date collection during registration;
 - email and phone password recovery;
 - verified phone possession with Android SMS Retriever metadata;
 - persistent, versioned `AccessFlow` journeys;
@@ -35,6 +36,9 @@ Bullgate Access makes those journeys explicit and auditable. It provides:
 - declarative multi-app, multi-environment, and multi-realm topology;
 - protected per-environment provider configuration;
 - scoped server-to-server credentials and permissions.
+- an [Access-owned administrative backend](docs/administration.md) for users and
+  complete configuration JSON, with separate Admin service authentication;
+  the real Admin module/client and screens remain a later slice.
 
 ## Ownership boundary
 

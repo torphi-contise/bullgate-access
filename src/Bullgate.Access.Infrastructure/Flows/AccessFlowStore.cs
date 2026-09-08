@@ -305,6 +305,18 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
              identifier.VerifiedAt != null))
             .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<Guid?> FindIdentifierOwnerAsync(
+        Guid realmId,
+        string scheme,
+        string normalizedValue,
+        CancellationToken cancellationToken) =>
+        dbContext.IdentityIdentifiers.AsNoTracking()
+            .Where(identifier => identifier.RealmId == realmId
+                && identifier.Scheme == scheme
+                && identifier.NormalizedValue == normalizedValue)
+            .Select(identifier => (Guid?)identifier.IdentityId)
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task<StoredAccessFlow?> FindActiveFlowBySourceAsync(
         Guid sourceSessionId,
         AccessFlowIntent intent,
@@ -648,6 +660,89 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
             command.AdvancedAt));
 
         return await SaveCommitAsync(transaction, cancellationToken);
+    }
+
+    public async Task<AccessFlowCommitStatus> TryAdvanceRegistrationWithIdentifierAsync(
+        AdvanceRegistrationWithIdentifierFlowCommand command,
+        CancellationToken cancellationToken)
+    {
+        dbContext.ChangeTracker.Clear();
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+            cancellationToken);
+        if (await RequestExistsAsync(
+                command.Scope.IntegrationClientId,
+                command.RequestId,
+                cancellationToken))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return AccessFlowCommitStatus.RequestAlreadyExists;
+        }
+
+        var pending = await LoadActiveFlowAsync(
+            command.Scope,
+            command.FlowId,
+            command.ExpectedRevision,
+            command.AdvancedAt,
+            cancellationToken,
+            command.RequestId);
+        if (pending.Status != AccessFlowCommitStatus.Committed)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return pending.Status;
+        }
+
+        var flow = pending.Flow!;
+        if (flow.Intent != AccessFlowIntent.ContinueRegistration
+            || pending.Context is null
+            || command.Identifier.IdentityId != flow.IdentityId
+            || command.Identifier.RealmId != flow.RealmId
+            || command.Identifier.Scheme is not (IdentifierScheme.Cpf or IdentifierScheme.Phone)
+            || (command.Identifier.Scheme == IdentifierScheme.Cpf) != command.BirthDate.HasValue)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return AccessFlowCommitStatus.RegistrationNotPending;
+        }
+
+        var owner = await dbContext.IdentityIdentifiers
+            .FromSqlInterpolated(
+                $"SELECT * FROM identity_identifiers WHERE realm_id = {flow.RealmId} AND scheme = {command.Identifier.Scheme} AND normalized_value = {command.Identifier.NormalizedValue} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken);
+        if (owner is not null && owner.IdentityId != flow.IdentityId)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return AccessFlowCommitStatus.PhoneOwnershipChanged;
+        }
+
+        if (command.BirthDate is { } birthDate)
+        {
+            var identity = await dbContext.Identities.SingleAsync(
+                item => item.Id == flow.IdentityId && item.RealmId == flow.RealmId,
+                cancellationToken);
+            identity.RecordBirthDate(birthDate);
+        }
+        if (owner is null)
+        {
+            dbContext.IdentityIdentifiers.Add(command.Identifier);
+        }
+
+        var revisionNumber = flow.Advance(
+            command.ExpectedRevision,
+            command.AdvancedAt);
+        dbContext.AccessFlowRevisions.Add(new AccessFlowRevision(
+            flow.Id,
+            revisionNumber,
+            command.SnapshotJson,
+            command.AdvancedAt));
+        dbContext.AccessFlowRequests.Add(new AccessFlowRequest(
+            command.Scope.IntegrationClientId,
+            command.RequestId,
+            flow.Id,
+            AccessFlowRequestKind.Action,
+            command.PayloadHash,
+            revisionNumber,
+            command.AdvancedAt));
+
+        return await SavePhoneCommitAsync(transaction, cancellationToken);
     }
 
     public async Task<AccessFlowCommitStatus> TryCreateProofChallengeAsync(
@@ -1302,8 +1397,12 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
         } && ownerIdentityId != flow.IdentityId;
         // Command shape must agree with locked ownership: a verified foreign owner opens
         // explicit conflict state and cannot simultaneously issue a product session.
+        var shouldIssueSession = !conflict && !command.ContinueRegistration;
         if (conflict != (command.PhoneConflict is not null)
-            || conflict == (command.ProductSession is not null))
+            || shouldIssueSession != (command.ProductSession is not null)
+            || (command.ContinueRegistration
+                && (conflict || flow.Intent != AccessFlowIntent.ContinueRegistration
+                    || pending.Context is null)))
         {
             await transaction.RollbackAsync(cancellationToken);
             return AccessFlowCommitStatus.PhoneOwnershipChanged;
@@ -1344,10 +1443,10 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
         }
         else
         {
-            if (command.ProductSession is null
+            if (!command.ContinueRegistration && (command.ProductSession is null
                 || command.ProductSession.IdentityId != flow.IdentityId
                 || command.ProductSession.AppEnvironmentId != flow.AppEnvironmentId
-                || command.ProductSession.Purpose != IdentitySessionPurpose.Product)
+                || command.ProductSession.Purpose != IdentitySessionPurpose.Product))
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return AccessFlowCommitStatus.RegistrationNotPending;
@@ -1386,40 +1485,49 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
                 command.ConfirmedAt,
                 cancellationToken);
 
-            if (flow.Intent == AccessFlowIntent.ContinueRegistration)
+            if (command.ContinueRegistration)
             {
-                pending.Context!.Complete(command.ConfirmedAt);
-            }
-            revisionNumber = flow.Complete(
-                command.ExpectedRevision,
-                command.ConfirmedAt);
-            dbContext.IdentitySessions.Add(command.ProductSession);
-            if (flow.Intent == AccessFlowIntent.ContinueRegistration)
-            {
-                if (!await TryRevokeSourceSessionAsync(
-                        flow,
-                        IdentitySessionPurpose.Registration,
-                        command.ConfirmedAt,
-                        cancellationToken))
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return AccessFlowCommitStatus.RegistrationNotPending;
-                }
-                await RevokeOtherRegistrationSessionsAsync(
-                    flow,
-                    command.ConfirmedAt,
-                    cancellationToken);
+                revisionNumber = flow.Advance(
+                    command.ExpectedRevision,
+                    command.ConfirmedAt);
             }
             else
             {
-                if (!await TryRevokeSourceSessionAsync(
-                        flow,
-                        IdentitySessionPurpose.Product,
-                        command.ConfirmedAt,
-                        cancellationToken))
+                if (flow.Intent == AccessFlowIntent.ContinueRegistration)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return AccessFlowCommitStatus.SourceSessionInactive;
+                    pending.Context!.Complete(command.ConfirmedAt);
+                }
+                revisionNumber = flow.Complete(
+                    command.ExpectedRevision,
+                    command.ConfirmedAt);
+                dbContext.IdentitySessions.Add(command.ProductSession!);
+                if (flow.Intent == AccessFlowIntent.ContinueRegistration)
+                {
+                    if (!await TryRevokeSourceSessionAsync(
+                            flow,
+                            IdentitySessionPurpose.Registration,
+                            command.ConfirmedAt,
+                            cancellationToken))
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return AccessFlowCommitStatus.RegistrationNotPending;
+                    }
+                    await RevokeOtherRegistrationSessionsAsync(
+                        flow,
+                        command.ConfirmedAt,
+                        cancellationToken);
+                }
+                else
+                {
+                    if (!await TryRevokeSourceSessionAsync(
+                            flow,
+                            IdentitySessionPurpose.Product,
+                            command.ConfirmedAt,
+                            cancellationToken))
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return AccessFlowCommitStatus.SourceSessionInactive;
+                    }
                 }
             }
         }
@@ -1628,9 +1736,13 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
             || phone.Scheme != IdentifierScheme.Phone
             || phone.VerifiedAt is null
             || !hasPhoneProof
-            || command.ProductSession.IdentityId != flow.IdentityId
-            || command.ProductSession.AppEnvironmentId != flow.AppEnvironmentId
-            || command.ProductSession.Purpose != IdentitySessionPurpose.Product)
+            || (command.ContinueRegistration
+                ? flow.Intent != AccessFlowIntent.ContinueRegistration
+                    || pending.Context is null || command.ProductSession is not null
+                : command.ProductSession is null
+                    || command.ProductSession.IdentityId != flow.IdentityId
+                    || command.ProductSession.AppEnvironmentId != flow.AppEnvironmentId
+                    || command.ProductSession.Purpose != IdentitySessionPurpose.Product))
         {
             await transaction.RollbackAsync(cancellationToken);
             return AccessFlowCommitStatus.PhoneConflictNotPending;
@@ -1651,16 +1763,19 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
             [flow.IdentityId, conflict.PreviousIdentityId],
             command.CompletedAt,
             cancellationToken);
-        if (flow.Intent == AccessFlowIntent.ContinueRegistration)
+        if (!command.ContinueRegistration && flow.Intent == AccessFlowIntent.ContinueRegistration)
         {
             pending.Context!.Complete(command.CompletedAt);
         }
-        var revisionNumber = flow.Complete(
-            command.ExpectedRevision,
-            command.CompletedAt);
+        var revisionNumber = command.ContinueRegistration
+            ? flow.Advance(command.ExpectedRevision, command.CompletedAt)
+            : flow.Complete(command.ExpectedRevision, command.CompletedAt);
 
         dbContext.PhoneRegistrationConflicts.Remove(conflict);
-        dbContext.IdentitySessions.Add(command.ProductSession);
+        if (command.ProductSession is not null)
+        {
+            dbContext.IdentitySessions.Add(command.ProductSession);
+        }
         dbContext.AccessFlowRevisions.Add(new AccessFlowRevision(
             flow.Id,
             revisionNumber,
@@ -1674,8 +1789,8 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
             command.PayloadHash,
             revisionNumber,
             command.CompletedAt,
-            command.ProductSession.Id));
-        if (flow.Intent == AccessFlowIntent.ContinueRegistration)
+            command.ProductSession?.Id));
+        if (!command.ContinueRegistration && flow.Intent == AccessFlowIntent.ContinueRegistration)
         {
             if (!await TryRevokeSourceSessionAsync(
                     flow,
@@ -1691,7 +1806,7 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
                 command.CompletedAt,
                 cancellationToken);
         }
-        else
+        else if (!command.ContinueRegistration)
         {
             if (!await TryRevokeSourceSessionAsync(
                     flow,
@@ -2204,17 +2319,25 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
         {
             if (command.Identifier.IdentityId != flow.IdentityId
                 || command.Identifier.RealmId != flow.RealmId
-                || command.Identifier.Scheme != IdentifierScheme.Phone)
+                || command.Identifier.Scheme is not (
+                    IdentifierScheme.Phone or IdentifierScheme.Cpf))
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return AccessFlowCommitStatus.PhoneOwnershipChanged;
             }
 
-            // Re-check the natural phone key under lock. A conflict created after the
+            if ((command.Identifier.Scheme == IdentifierScheme.Cpf)
+                != (command.BirthDate is not null))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return AccessFlowCommitStatus.RegistrationNotPending;
+            }
+
+            // Re-check the natural identifier key under lock. A conflict created after the
             // service's preliminary lookup must defeat this completion.
             var owner = await dbContext.IdentityIdentifiers
                 .FromSqlInterpolated(
-                    $"SELECT * FROM identity_identifiers WHERE realm_id = {flow.RealmId} AND scheme = {IdentifierScheme.Phone} AND normalized_value = {command.Identifier.NormalizedValue} FOR UPDATE")
+                    $"SELECT * FROM identity_identifiers WHERE realm_id = {flow.RealmId} AND scheme = {command.Identifier.Scheme} AND normalized_value = {command.Identifier.NormalizedValue} FOR UPDATE")
                 .SingleOrDefaultAsync(cancellationToken);
             if (owner is not null && owner.IdentityId != flow.IdentityId)
             {
@@ -2224,6 +2347,14 @@ internal sealed class AccessFlowStore(AccessDbContext dbContext) : IAccessFlowSt
             if (owner is null)
             {
                 dbContext.IdentityIdentifiers.Add(command.Identifier);
+            }
+
+            if (command.BirthDate is not null)
+            {
+                var identity = await dbContext.Identities.SingleAsync(
+                    item => item.Id == flow.IdentityId && item.RealmId == flow.RealmId,
+                    cancellationToken);
+                identity.RecordBirthDate(command.BirthDate.Value);
             }
         }
 

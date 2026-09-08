@@ -1,5 +1,11 @@
 # Domain model
 
+The [administrative backend](administration.md) adds the Access-owned
+`AdminOperation` committed receipt. It records trusted Admin attribution,
+function/target, UTC time, a purpose-keyed input fingerprint and secret-free
+result. It contains no human profile database or current user contact data and
+has no cascading identity relationship, so erasure can retain its receipt.
+
 ## Topology
 
 Topology establishes isolation before an identity operation occurs. Natural
@@ -24,9 +30,16 @@ Abandonment retains the provisional identity row as closed lifecycle history. Th
 recovery transaction revokes its sessions and removes its credentials, identifiers,
 recovery artifacts, and current-flow proof state. It must not be presented as erasure.
 
-`IdentityIdentifier` associates an identity with a normalized `email` or
+`IdentityIdentifier` associates an identity with a normalized `email`, `cpf`, or
 `phone`. `RealmId + Scheme + NormalizedValue` is unique. Email acceptance is
-policy-driven. Phone possession is a separate proof-based contract.
+policy-driven. Phone possession is a separate proof-based contract. An identity
+also stores an optional birth date; CPF policy collects and commits both values
+together, while only CPF participates in identifier uniqueness.
+
+The CPF normalizer accepts eleven ASCII digits or the canonical dotted form,
+rejects repeated digits, and validates both check digits. Birth date accepts the
+exact ISO `yyyy-MM-dd` calendar form and cannot be in the future. Structural CPF
+validation is not government verification or proof that the person owns the CPF.
 
 The current phone normalizer accepts an already canonical international shape:
 `+`, a non-zero first digit, and 8–15 ASCII digits in total. It trims only outer
@@ -141,7 +154,7 @@ contract is in [`identity-erasure.md`](identity-erasure.md).
 - Domain timestamps use UTC offset zero.
 - Empty UUIDs are rejected at domain boundaries.
 - Passwords, tokens, codes, and client secrets are stored only as hashes.
-- Email and phone are normalized before uniqueness checks; normalization is not
+- Email, CPF, and phone are normalized before uniqueness checks; normalization is not
   possession proof.
 - Realm and environment scope comes from authenticated context.
 - State transitions reject stale revisions.

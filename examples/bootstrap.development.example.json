@@ -27,6 +27,13 @@
                     "enabled": false
                   }
                 },
+                "cpf": {
+                  "enabled": false,
+                  "required": false,
+                  "verification": {
+                    "enabled": false
+                  }
+                },
                 "phone": {
                   "enabled": false,
                   "required": false,

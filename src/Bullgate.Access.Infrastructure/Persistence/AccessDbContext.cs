@@ -1,3 +1,4 @@
+using Bullgate.Access.Domain.Administration;
 using Bullgate.Access.Domain.Flows;
 using Bullgate.Access.Domain.Identities;
 using Bullgate.Access.Domain.Topology;
@@ -13,6 +14,7 @@ public sealed class AccessDbContext(DbContextOptions<AccessDbContext> options)
     : DbContext(options)
 {
     public DbSet<Workspace> Workspaces => Set<Workspace>();
+    public DbSet<AdminOperation> AdminOperations => Set<AdminOperation>();
     public DbSet<App> Apps => Set<App>();
     public DbSet<Realm> Realms => Set<Realm>();
     public DbSet<AppEnvironment> AppEnvironments => Set<AppEnvironment>();

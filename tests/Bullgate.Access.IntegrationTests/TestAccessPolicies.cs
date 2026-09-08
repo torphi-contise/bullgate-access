@@ -7,12 +7,14 @@ internal static class TestAccessPolicies
     public static AppAccessPolicy Create(
         bool emailEnabled = true,
         bool emailRequired = true,
+        bool cpfEnabled = false,
         bool phoneEnabled = true,
         bool phoneRequired = false,
         bool phoneVerificationEnabled = true,
         bool passwordEnabled = true,
         bool googleEnabled = false,
-        bool appleEnabled = false) =>
+        bool appleEnabled = false,
+        CpfCollectionPosition? cpfCollectionPosition = null) =>
         new(
             new IdentifierAccessPolicy(
                 emailEnabled,
@@ -29,7 +31,12 @@ internal static class TestAccessPolicies
             new AuthenticatorAccessPolicy(
                 passwordEnabled,
                 googleEnabled,
-                appleEnabled));
+                appleEnabled),
+            new IdentifierAccessPolicy(
+                cpfEnabled,
+                cpfEnabled,
+                IdentifierVerificationPolicy.Disabled),
+            cpfCollectionPosition);
 }
 
 internal static class TestEnvironmentConfigurations

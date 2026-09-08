@@ -16,6 +16,13 @@ operations overlap or a response is lost.
 
 ## Three durable records
 
+These three records describe AccessFlow. The separate
+[administrative backend](administration.md) uses one `admin_operations` receipt
+per caller/operation id, atomically committed with its effect. It uses keyed input
+fingerprints, exact replay, identity/session cuts and the existing bootstrap lock
+for configuration revision comparisons. It does not change AccessFlow replay or
+add automatic HTTP mutation retries.
+
 `AccessFlow`, `AccessFlowRevision`, and `AccessFlowRequest` answer different questions:
 
 | Record | Question answered | What it must not be treated as |

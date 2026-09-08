@@ -22,6 +22,73 @@ namespace Bullgate.Access.Migrations.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Bullgate.Access.Domain.Administration.AdminOperation", b =>
+                {
+                    b.Property<string>("CallerId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("caller_id");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_id");
+
+                    b.Property<DateTimeOffset>("CommittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("committed_at");
+
+                    b.Property<string>("OperatorId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("operator_id");
+
+                    b.Property<string>("Permission")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("permission");
+
+                    b.Property<Guid?>("RealmId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("realm_id");
+
+                    b.Property<byte[]>("RequestFingerprint")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("request_fingerprint");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("result_json");
+
+                    b.Property<string>("ScopeId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("scope_id");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.HasKey("CallerId", "OperationId");
+
+                    b.ToTable("admin_operations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_admin_operations_fingerprint", "octet_length(request_fingerprint) = 32");
+
+                            t.HasCheckConstraint("ck_admin_operations_result", "jsonb_typeof(result_json) = 'object'");
+                        });
+                });
+
             modelBuilder.Entity("Bullgate.Access.Domain.Flows.AccessFlow", b =>
                 {
                     b.Property<Guid>("Id")
@@ -273,6 +340,10 @@ namespace Bullgate.Access.Migrations.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<DateOnly?>("BirthDate")
+                        .HasColumnType("date")
+                        .HasColumnName("birth_date");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1019,6 +1090,19 @@ namespace Bullgate.Access.Migrations.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("configuration_updated_at");
 
+                    b.Property<string>("CpfCollectionPosition")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("cpf_collection_position");
+
+                    b.Property<bool>("CpfIdentifierEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cpf_identifier_enabled");
+
+                    b.Property<bool>("CpfIdentifierRequired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cpf_identifier_required");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1116,6 +1200,8 @@ namespace Bullgate.Access.Migrations.Migrations
                             t.HasCheckConstraint("ck_app_environments_configuration_nonce_length", "octet_length(configuration_nonce) = 12");
 
                             t.HasCheckConstraint("ck_app_environments_configuration_tag_length", "octet_length(configuration_tag) = 16");
+
+                            t.HasCheckConstraint("ck_app_environments_cpf_after_required_phone", "cpf_collection_position IS DISTINCT FROM 'AfterPhone' OR (phone_identifier_enabled AND phone_identifier_required)");
                         });
                 });
 

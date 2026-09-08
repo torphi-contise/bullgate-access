@@ -150,6 +150,13 @@ public sealed class AccessFlowServicePhoneConfirmationTests
             CancellationToken cancellationToken) =>
             Task.FromResult<PhoneIdentifierOwner?>(owner);
 
+        public Task<Guid?> FindIdentifierOwnerAsync(
+            Guid realmId,
+            string scheme,
+            string normalizedValue,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<AccessFlowCommitStatus> TryBeginPhoneConfirmationAsync(
             BeginPhoneConfirmationFlowCommand command,
             CancellationToken cancellationToken) =>
@@ -251,6 +258,11 @@ public sealed class AccessFlowServicePhoneConfirmationTests
 
         public Task<AccessFlowCommitStatus> TryAdvanceAsync(
             AdvanceAccessFlowCommand command,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<AccessFlowCommitStatus> TryAdvanceRegistrationWithIdentifierAsync(
+            AdvanceRegistrationWithIdentifierFlowCommand command,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

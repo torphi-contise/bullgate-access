@@ -85,26 +85,77 @@ public sealed record AuthenticatorAccessPolicy(
     bool GoogleEnabled,
     bool AppleEnabled);
 
-/// <summary>Complete queryable access policy for email, phone, and authenticators.</summary>
+/// <summary>Position of the combined CPF and birth-date registration step.</summary>
+public enum CpfCollectionPosition
+{
+    /// <summary>Collect civil data before collecting the phone.</summary>
+    BeforePhone,
+    /// <summary>Collect civil data after the required phone step.</summary>
+    AfterPhone,
+}
+
+/// <summary>Complete queryable access policy for email, CPF, phone, and authenticators.</summary>
 public sealed record AppAccessPolicy
 {
     /// <summary>Combines identifier and authenticator policy for one environment.</summary>
     public AppAccessPolicy(
         IdentifierAccessPolicy email,
         IdentifierAccessPolicy phone,
-        AuthenticatorAccessPolicy authenticators)
+        AuthenticatorAccessPolicy authenticators,
+        IdentifierAccessPolicy? cpf = null,
+        CpfCollectionPosition? cpfCollectionPosition = null)
     {
         ArgumentNullException.ThrowIfNull(email);
         ArgumentNullException.ThrowIfNull(phone);
         ArgumentNullException.ThrowIfNull(authenticators);
 
         Email = email;
+        Cpf = cpf ?? new IdentifierAccessPolicy(
+            false,
+            false,
+            IdentifierVerificationPolicy.Disabled);
+        if (Cpf.Enabled && !Cpf.Required)
+        {
+            throw new ArgumentException(
+                "An enabled CPF identifier must be required.",
+                nameof(cpf));
+        }
+        if (Cpf.Verification.Enabled)
+        {
+            throw new ArgumentException(
+                "CPF ownership verification is not implemented.",
+                nameof(cpf));
+        }
+        if (Cpf.Enabled && cpfCollectionPosition is null)
+        {
+            throw new ArgumentException(
+                "Enabled CPF collection requires an explicit position.",
+                nameof(cpfCollectionPosition));
+        }
+        if (cpfCollectionPosition is { } position && !Enum.IsDefined(position))
+        {
+            throw new ArgumentOutOfRangeException(nameof(cpfCollectionPosition));
+        }
+        if (cpfCollectionPosition == Topology.CpfCollectionPosition.AfterPhone
+            && (!phone.Enabled || !phone.Required))
+        {
+            throw new ArgumentException(
+                "CPF collection after phone requires phone to be enabled and required.",
+                nameof(cpfCollectionPosition));
+        }
+        CpfCollectionPosition = cpfCollectionPosition;
         Phone = phone;
         Authenticators = authenticators;
     }
 
     /// <summary>E-mail collection and verification policy.</summary>
     public IdentifierAccessPolicy Email { get; }
+
+    /// <summary>Required CPF and birth-date collection policy.</summary>
+    public IdentifierAccessPolicy Cpf { get; }
+
+    /// <summary>Explicit collection position, optional only when CPF is disabled.</summary>
+    public CpfCollectionPosition? CpfCollectionPosition { get; }
 
     /// <summary>Phone collection and verification policy.</summary>
     public IdentifierAccessPolicy Phone { get; }

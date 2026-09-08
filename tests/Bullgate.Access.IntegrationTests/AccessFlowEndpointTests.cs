@@ -1958,7 +1958,9 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             verification.GetProperty("step").GetProperty("type").GetString());
     }
 
-    private async Task<StartedRegistration> RegisterAndStartFlowAsync(string email)
+    private async Task<StartedRegistration> RegisterAndStartFlowAsync(
+        string email,
+        IReadOnlyList<int>? protocolVersions = null)
     {
         var registration = await client.PostAsJsonAsync(
             "/v1/auth/register",
@@ -1976,7 +1978,7 @@ public sealed partial class AccessFlowEndpointTests(PostgreSqlFixture database)
             new
             {
                 requestId = Guid.NewGuid(),
-                protocolVersions = ProtocolVersion1,
+                protocolVersions = protocolVersions ?? ProtocolVersion1,
                 intent = "continueRegistration",
                 applicationClientKey = ApplicationClientKey,
                 sessionToken = registrationToken,

@@ -51,6 +51,9 @@ public sealed class Identity
     /// <summary>Current participation state for access operations.</summary>
     public IdentityLifecycleState LifecycleState { get; private set; }
 
+    /// <summary>Birth date collected with the identity CPF, when configured.</summary>
+    public DateOnly? BirthDate { get; private set; }
+
     /// <summary>UTC time at which Access created this identity.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -65,6 +68,21 @@ public sealed class Identity
     public void Abandon()
     {
         LifecycleState = IdentityLifecycleState.Abandoned;
+    }
+
+    /// <summary>Records the birth date collected with the identity CPF.</summary>
+    /// <remarks>
+    /// Repeating the same value is idempotent. Registration cannot silently replace a
+    /// different date already associated with the identity.
+    /// </remarks>
+    public void RecordBirthDate(DateOnly birthDate)
+    {
+        if (BirthDate is not null && BirthDate != birthDate)
+        {
+            throw new InvalidOperationException("The identity birth date is already set.");
+        }
+
+        BirthDate = birthDate;
     }
 
     private static Guid RequireId(Guid value, string parameterName)

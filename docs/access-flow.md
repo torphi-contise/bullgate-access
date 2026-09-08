@@ -2,7 +2,9 @@
 
 `AccessFlow` is the persistent protocol for identity journeys that cannot be
 represented safely as one request. Protocol version 1 implements
-`continueRegistration` and `managePhone`.
+`continueRegistration` and `managePhone`. Protocol version 2 adds required CPF
+and birth-date collection to `continueRegistration`; a client that does not
+advertise version 2 cannot start that configured journey.
 
 ## Why a server-owned state machine
 
@@ -169,6 +171,28 @@ invisible to replay logic.
 The local hash is authoritative in `AccessFlow`. Twilio carries the custom code;
 Access does not ask it to make a second confirmation decision after the local
 code matches.
+
+## CPF and birth-date sequence
+
+When CPF policy is enabled, the configured `cpfCollectionPosition` places the
+combined step before or after phone collection. `collectCpf` advertises only
+`submitCpf`. The action accepts `cpf` and `birthDate` together. Invalid CPF
+or birth date returns the same step with field-specific feedback and stores
+neither value.
+
+A valid action atomically stores the realm-unique normalized CPF and identity
+birth date. With `beforePhone`, registration starts at `collectCpf` and advances
+to `collectPhone` if phone is enabled; otherwise it completes registration.
+With `afterPhone`, phone must be enabled and required. Registration starts at
+`collectPhone`; collecting or verifying the phone advances to `collectCpf`
+without issuing a product session or closing the registration context. Submitting
+both civil fields then completes registration and issues the product session.
+
+The existing phone-conflict decision and previous-email comparison are unchanged.
+With `afterPhone`, successful phone transfer continues to `collectCpf` instead of
+completing registration immediately. CPF does not resolve the conflict or enable
+email replacement. CPF is stored without verification metadata because structural
+check digits do not establish ownership.
 
 The full distinction between challenge state, attempt history, durable proof,
 identifier verification, and identifier ownership is defined in

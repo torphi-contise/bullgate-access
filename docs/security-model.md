@@ -10,12 +10,16 @@
    operations.
 4. PostgreSQL stores protected configuration and hashes of bearer material.
 5. External identity and delivery providers are separate failure domains.
+6. The administrative backend trusts only the separately authenticated Admin
+   server to attest current operator/function authority; no browser or consumer
+   Bearer can provide it. See [administration](administration.md).
 
 ## Secret classes
 
 | Value | May reach application JavaScript? | Persistence |
 | --- | --- | --- |
 | Integration credential | No | Hash plus lifecycle metadata in Access; raw value only in server secret storage. |
+| Admin service credential | No | SHA-256 verifier in Access installation settings; random raw secret only in Admin server secret storage. |
 | Session token | No in the recommended BFF design | Hash in Access; raw value in an `HttpOnly` cookie. |
 | Flow capability | No | Protected server-side; recommended `HttpOnly` path-scoped cookie. |
 | Password reset token | Only through the intended recovery channel | Hash in Access. |

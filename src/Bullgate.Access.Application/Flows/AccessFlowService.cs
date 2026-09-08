@@ -103,8 +103,7 @@ public sealed class AccessFlowService
             return Replay(existing, payloadHash, scope, command.RequestId);
         }
 
-        if (command.ProtocolVersions is null
-            || !command.ProtocolVersions.Contains(AccessFlowProtocol.Version1))
+        if (command.ProtocolVersions is null)
         {
             return AccessFlowResult.Failure(
                 AccessFlowError.ProtocolVersionUnsupported);
@@ -136,7 +135,19 @@ public sealed class AccessFlowService
             scope.AppEnvironmentId,
             cancellationToken);
         var policy = configuration.AccessPolicy;
-        if (!policy.Phone.Enabled)
+        var protocolVersion = intent == AccessFlowIntent.ContinueRegistration
+            && policy.Cpf.Enabled
+            ? AccessFlowProtocol.Version2
+            : AccessFlowProtocol.Version1;
+        if (!command.ProtocolVersions.Contains(protocolVersion))
+        {
+            return AccessFlowResult.Failure(
+                AccessFlowError.ProtocolVersionUnsupported);
+        }
+        if ((intent == AccessFlowIntent.ManagePhone && !policy.Phone.Enabled)
+            || (intent == AccessFlowIntent.ContinueRegistration
+                && !policy.Cpf.Enabled
+                && !policy.Phone.Enabled))
         {
             return AccessFlowResult.Failure(AccessFlowError.IntentUnsupported);
         }
@@ -188,13 +199,24 @@ public sealed class AccessFlowService
 
         var flowId = Guid.CreateVersion7(now);
         var expiresAt = now.Add(FlowDuration);
-        var snapshot = CreateCollectPhoneSnapshot(
-            flowId,
-            revision: 1,
-            expiresAt,
-            intent.Value,
-            policy.Phone,
-            now);
+        var snapshot = intent == AccessFlowIntent.ContinueRegistration
+            && policy.Cpf.Enabled
+            && policy.CpfCollectionPosition == CpfCollectionPosition.BeforePhone
+            ? CreateCollectCpfSnapshot(
+                protocolVersion,
+                flowId,
+                revision: 1,
+                expiresAt,
+                intent.Value,
+                now)
+            : CreateCollectPhoneSnapshot(
+                protocolVersion,
+                flowId,
+                revision: 1,
+                expiresAt,
+                intent.Value,
+                policy.Phone,
+                now);
         var flow = new AccessFlow(
             flowId,
             scope.RealmId,
@@ -204,7 +226,7 @@ public sealed class AccessFlowService
             identityId,
             registrationContextId,
             sourceSessionId,
-            AccessFlowProtocol.Version1,
+            protocolVersion,
             intent.Value,
             now,
             expiresAt);
@@ -394,6 +416,17 @@ public sealed class AccessFlowService
                     null,
                     now,
                     cancellationToken),
+            AccessFlowProtocol.SubmitCpfAction =>
+                await SubmitCpfAsync(
+                    scope,
+                    stored,
+                    command,
+                    payloadHash,
+                    requestedCpf: ReadInputString(command.Input, "cpf"),
+                    requestedBirthDate: ReadInputString(command.Input, "birthDate"),
+                    policy,
+                    now,
+                    cancellationToken),
             AccessFlowProtocol.RequestPhoneVerificationAction =>
                 await RequestPhoneAsync(
                     scope,
@@ -413,7 +446,7 @@ public sealed class AccessFlowService
                     command,
                     payloadHash,
                     requestedPhone: ReadInputString(command.Input, "phone"),
-                    policy.Phone,
+                    policy,
                     now,
                     cancellationToken),
             AccessFlowProtocol.ResendPhoneVerificationAction =>
@@ -433,7 +466,7 @@ public sealed class AccessFlowService
                     stored,
                     command,
                     payloadHash,
-                    policy.Phone,
+                    policy,
                     configuration.VerificationPolicy,
                     now,
                     cancellationToken),
@@ -443,7 +476,7 @@ public sealed class AccessFlowService
                     stored,
                     command,
                     payloadHash,
-                    policy.Phone,
+                    policy,
                     configuration.VerificationPolicy,
                     now,
                     cancellationToken),
@@ -556,10 +589,11 @@ public sealed class AccessFlowService
         AccessFlowActionCommand command,
         byte[] payloadHash,
         string? requestedPhone,
-        IdentifierAccessPolicy phonePolicy,
+        AppAccessPolicy policy,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        var phonePolicy = policy.Phone;
         if (!phonePolicy.Enabled || phonePolicy.Verification.Enabled)
         {
             return AccessFlowResult.Failure(AccessFlowError.ActionNotAvailable);
@@ -610,6 +644,26 @@ public sealed class AccessFlowService
                 normalizedPhone,
                 now)
             : null;
+        if (CollectCpfAfterPhone(stored, policy))
+        {
+            var next = CreateCollectCpfSnapshot(stored, now);
+            var status = await store.TryAdvanceRegistrationWithIdentifierAsync(
+                new AdvanceRegistrationWithIdentifierFlowCommand(
+                    scope,
+                    stored.FlowId,
+                    command.RequestId,
+                    payloadHash,
+                    command.ExpectedRevision,
+                    SerializeSnapshot(next),
+                    identifier ?? new IdentityIdentifier(
+                        Guid.CreateVersion7(now), stored.IdentityId, scope.RealmId,
+                        IdentifierScheme.Phone, normalizedPhone, now),
+                    null,
+                    now),
+                cancellationToken);
+            return await ReplayCommitAsync(
+                status, scope, command.RequestId, payloadHash, cancellationToken);
+        }
         return stored.Intent == AccessFlowIntent.ManagePhone
             ? await CompletePhoneManagementAsync(
                 scope,
@@ -629,6 +683,123 @@ public sealed class AccessFlowService
                 identifier,
                 now,
                 cancellationToken);
+    }
+
+    private async Task<AccessFlowResult> SubmitCpfAsync(
+        AccessFlowScope scope,
+        StoredAccessFlow stored,
+        AccessFlowActionCommand command,
+        byte[] payloadHash,
+        string? requestedCpf,
+        string? requestedBirthDate,
+        AppAccessPolicy policy,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (stored.Intent != AccessFlowIntent.ContinueRegistration)
+        {
+            return AccessFlowResult.Failure(AccessFlowError.ActionNotAvailable);
+        }
+
+        if (!CpfValue.TryNormalize(requestedCpf, out var normalizedCpf))
+        {
+            return await AdvanceWithFeedbackAsync(
+                scope,
+                stored,
+                command.RequestId,
+                payloadHash,
+                CreateCollectCpfSnapshot(
+                    stored,
+                    now,
+                    new AccessFlowFeedbackSnapshot("invalid-cpf", "cpf")),
+                now,
+                cancellationToken);
+        }
+
+        var currentDate = DateOnly.FromDateTime(now.UtcDateTime);
+        if (!CpfValue.TryParseBirthDate(
+                requestedBirthDate,
+                currentDate,
+                out var birthDate))
+        {
+            return await AdvanceWithFeedbackAsync(
+                scope,
+                stored,
+                command.RequestId,
+                payloadHash,
+                CreateCollectCpfSnapshot(
+                    stored,
+                    now,
+                    new AccessFlowFeedbackSnapshot(
+                        "invalid-birth-date",
+                        "birthDate")),
+                now,
+                cancellationToken);
+        }
+
+        var ownerIdentityId = await store.FindIdentifierOwnerAsync(
+            scope.RealmId,
+            IdentifierScheme.Cpf,
+            normalizedCpf,
+            cancellationToken);
+        if (ownerIdentityId is not null && ownerIdentityId != stored.IdentityId)
+        {
+            return await AdvanceWithFeedbackAsync(
+                scope,
+                stored,
+                command.RequestId,
+                payloadHash,
+                CreateCollectCpfSnapshot(
+                    stored,
+                    now,
+                    new AccessFlowFeedbackSnapshot(
+                        "cpf-already-in-use",
+                        "cpf")),
+                now,
+                cancellationToken);
+        }
+
+        var identifier = new IdentityIdentifier(
+            Guid.CreateVersion7(now),
+            stored.IdentityId,
+            scope.RealmId,
+            IdentifierScheme.Cpf,
+            normalizedCpf,
+            now);
+        if (policy.CpfCollectionPosition == CpfCollectionPosition.BeforePhone
+            && policy.Phone.Enabled)
+        {
+            var next = CreateCollectPhoneSnapshot(stored, policy.Phone, now);
+            var status = await store.TryAdvanceRegistrationWithIdentifierAsync(
+                new AdvanceRegistrationWithIdentifierFlowCommand(
+                    scope,
+                    stored.FlowId,
+                    command.RequestId,
+                    payloadHash,
+                    command.ExpectedRevision,
+                    SerializeSnapshot(next),
+                    identifier,
+                    birthDate,
+                    now),
+                cancellationToken);
+            return await ReplayCommitAsync(
+                status,
+                scope,
+                command.RequestId,
+                payloadHash,
+                cancellationToken);
+        }
+
+        return await CompleteRegistrationAsync(
+            scope,
+            stored,
+            command,
+            payloadHash,
+            "civilDataCollected",
+            identifier,
+            now,
+            cancellationToken,
+            birthDate);
     }
 
     private async Task<AccessFlowResult> RequestPhoneAsync(
@@ -916,11 +1087,12 @@ public sealed class AccessFlowService
         StoredAccessFlow stored,
         AccessFlowActionCommand command,
         byte[] payloadHash,
-        IdentifierAccessPolicy phonePolicy,
+        AppAccessPolicy policy,
         AppVerificationPolicy verificationPolicy,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        var phonePolicy = policy.Phone;
         var journey = await store.FindPhoneJourneyAsync(
             stored.FlowId,
             now,
@@ -1061,6 +1233,7 @@ public sealed class AccessFlowService
             confirmedAt);
         PhoneRegistrationConflict? phoneConflict = null;
         IdentitySession? productSession = null;
+        var continueRegistration = !conflict && CollectCpfAfterPhone(stored, policy);
         AccessFlowSnapshot snapshot;
         if (conflict)
         {
@@ -1078,6 +1251,10 @@ public sealed class AccessFlowService
                 phonePolicy,
                 confirmedAt,
                 MaskEmail(owner.Email));
+        }
+        else if (continueRegistration)
+        {
+            snapshot = CreateCollectCpfSnapshot(stored, confirmedAt);
         }
         else
         {
@@ -1125,7 +1302,8 @@ public sealed class AccessFlowService
                     proof,
                     phoneConflict,
                     productSession,
-                    confirmedAt),
+                    confirmedAt,
+                    continueRegistration),
                 finalization.Token);
         }
         catch (Exception exception)
@@ -1169,7 +1347,8 @@ public sealed class AccessFlowService
         string outcome,
         IdentityIdentifier? identifier,
         DateTimeOffset now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateOnly? birthDate = null)
     {
         // Terminal session authority is deterministic for this flow/request pair. The
         // store persists only its hash, while exact replay can derive the same clear
@@ -1198,7 +1377,8 @@ public sealed class AccessFlowService
                 SerializeSnapshot(snapshot),
                 identifier,
                 productSession,
-                now),
+                now,
+                birthDate),
             cancellationToken);
         return await ReplayCommitAsync(
             status,
@@ -1260,11 +1440,12 @@ public sealed class AccessFlowService
         StoredAccessFlow stored,
         AccessFlowActionCommand command,
         byte[] payloadHash,
-        IdentifierAccessPolicy phonePolicy,
+        AppAccessPolicy policy,
         AppVerificationPolicy verificationPolicy,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        var phonePolicy = policy.Phone;
         var journey = await store.FindPhoneJourneyAsync(
             stored.FlowId,
             now,
@@ -1330,25 +1511,32 @@ public sealed class AccessFlowService
                 cancellationToken);
         }
 
-        var issued = flowTokens.IssueSession(
-            stored.FlowId,
-            command.RequestId,
-            stored.IdentityId,
-            scope.AppEnvironmentId);
-        var productSession = new IdentitySession(
-            Guid.CreateVersion7(now),
-            stored.IdentityId,
-            scope.AppEnvironmentId,
-            IdentitySessionPurpose.Product,
-            issued.TokenHash,
-            now,
-            now.Add(ProductSessionDuration));
-        var terminal = CreateTerminalSnapshot(
-            stored,
-            "completed",
-            "phoneTransferred",
-            conflict.PreviousIdentityId,
-            stored.IdentityId);
+        var continueRegistration = CollectCpfAfterPhone(stored, policy);
+        IdentitySession? productSession = null;
+        if (!continueRegistration)
+        {
+            var issued = flowTokens.IssueSession(
+                stored.FlowId,
+                command.RequestId,
+                stored.IdentityId,
+                scope.AppEnvironmentId);
+            productSession = new IdentitySession(
+                Guid.CreateVersion7(now),
+                stored.IdentityId,
+                scope.AppEnvironmentId,
+                IdentitySessionPurpose.Product,
+                issued.TokenHash,
+                now,
+                now.Add(ProductSessionDuration));
+        }
+        var next = continueRegistration
+            ? CreateCollectCpfSnapshot(stored, now)
+            : CreateTerminalSnapshot(
+                stored,
+                "completed",
+                "phoneTransferred",
+                conflict.PreviousIdentityId,
+                stored.IdentityId);
         var status = await store.TryTransferPhoneAsync(
             new TransferPhoneFlowCommand(
                 scope,
@@ -1356,13 +1544,14 @@ public sealed class AccessFlowService
                 command.RequestId,
                 payloadHash,
                 command.ExpectedRevision,
-                SerializeSnapshot(terminal),
+                SerializeSnapshot(next),
                 expectedAttempts,
                 verificationPolicy.PhoneConflictEmailMaxAttempts,
                 conflict.PreviousIdentityId,
                 normalizedEmail,
                 productSession,
-                now),
+                now,
+                continueRegistration),
             cancellationToken);
         return await ReplayCommitAsync(
             status,
@@ -1371,6 +1560,11 @@ public sealed class AccessFlowService
             payloadHash,
             cancellationToken);
     }
+
+    private static bool CollectCpfAfterPhone(StoredAccessFlow stored, AppAccessPolicy policy) =>
+        stored.Intent == AccessFlowIntent.ContinueRegistration
+        && policy.Cpf.Enabled
+        && policy.CpfCollectionPosition == CpfCollectionPosition.AfterPhone;
 
     private async Task<AccessFlowResult> ChangePhoneAsync(
         AccessFlowScope scope,
@@ -1890,12 +2084,45 @@ public sealed class AccessFlowService
             null,
             null);
 
+    private static AccessFlowSnapshot CreateCollectCpfSnapshot(
+        StoredAccessFlow stored,
+        DateTimeOffset idTimestamp,
+        AccessFlowFeedbackSnapshot? feedback = null) =>
+        CreateCollectCpfSnapshot(
+            stored.ProtocolVersion,
+            stored.FlowId,
+            checked(stored.CurrentRevision + 1),
+            stored.ExpiresAt,
+            stored.Intent,
+            idTimestamp,
+            feedback);
+
+    private static AccessFlowSnapshot CreateCollectCpfSnapshot(
+        int protocolVersion,
+        Guid flowId,
+        int revision,
+        DateTimeOffset expiresAt,
+        AccessFlowIntent intent,
+        DateTimeOffset idTimestamp,
+        AccessFlowFeedbackSnapshot? feedback = null) =>
+        new(
+            protocolVersion,
+            flowId,
+            revision,
+            IntentName(intent),
+            "active",
+            expiresAt,
+            new AccessFlowStepSnapshot(AccessFlowProtocol.CollectCpfStep),
+            [Action(AccessFlowProtocol.SubmitCpfAction, idTimestamp)],
+            Feedback: feedback);
+
     private static AccessFlowSnapshot CreateCollectPhoneSnapshot(
         StoredAccessFlow stored,
         IdentifierAccessPolicy phonePolicy,
         DateTimeOffset idTimestamp,
         AccessFlowFeedbackSnapshot? feedback = null) =>
         CreateCollectPhoneSnapshot(
+            stored.ProtocolVersion,
             stored.FlowId,
             checked(stored.CurrentRevision + 1),
             stored.ExpiresAt,
@@ -1905,6 +2132,7 @@ public sealed class AccessFlowService
             feedback);
 
     private static AccessFlowSnapshot CreateCollectPhoneSnapshot(
+        int protocolVersion,
         Guid flowId,
         int revision,
         DateTimeOffset expiresAt,
@@ -1929,7 +2157,7 @@ public sealed class AccessFlowService
             ]
             : [primaryAction];
         return new(
-            AccessFlowProtocol.Version1,
+            protocolVersion,
             flowId,
             revision,
             IntentName(intent),
@@ -1947,6 +2175,7 @@ public sealed class AccessFlowService
         DateTimeOffset idTimestamp,
         AccessFlowFeedbackSnapshot? feedback = null) =>
         CreateVerifyPhoneSnapshot(
+            stored.ProtocolVersion,
             stored.FlowId,
             checked(stored.CurrentRevision + 1),
             stored.ExpiresAt,
@@ -1957,6 +2186,7 @@ public sealed class AccessFlowService
             feedback);
 
     private static AccessFlowSnapshot CreateVerifyPhoneSnapshot(
+        int protocolVersion,
         Guid flowId,
         int revision,
         DateTimeOffset expiresAt,
@@ -1980,7 +2210,7 @@ public sealed class AccessFlowService
                 Action(AccessFlowProtocol.ChangePhoneAction, idTimestamp),
             ];
         return new(
-            AccessFlowProtocol.Version1,
+            protocolVersion,
             flowId,
             revision,
             IntentName(intent),
@@ -2003,6 +2233,7 @@ public sealed class AccessFlowService
         bool allowEmailTransfer = true,
         AccessFlowFeedbackSnapshot? feedback = null) =>
         CreatePhoneConflictSnapshot(
+            stored.ProtocolVersion,
             stored.FlowId,
             checked(stored.CurrentRevision + 1),
             stored.ExpiresAt,
@@ -2014,6 +2245,7 @@ public sealed class AccessFlowService
             feedback);
 
     private static AccessFlowSnapshot CreatePhoneConflictSnapshot(
+        int protocolVersion,
         Guid flowId,
         int revision,
         DateTimeOffset expiresAt,
@@ -2059,7 +2291,7 @@ public sealed class AccessFlowService
                 ],
             };
         return new(
-            AccessFlowProtocol.Version1,
+            protocolVersion,
             flowId,
             revision,
             IntentName(intent),

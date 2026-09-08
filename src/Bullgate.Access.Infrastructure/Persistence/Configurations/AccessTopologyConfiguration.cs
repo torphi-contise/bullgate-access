@@ -127,6 +127,9 @@ internal sealed class AppEnvironmentEntityConfiguration : IEntityTypeConfigurati
                 table.HasCheckConstraint(
                     "ck_app_environments_configuration_tag_length",
                     "octet_length(configuration_tag) = 16");
+                table.HasCheckConstraint(
+                    "ck_app_environments_cpf_after_required_phone",
+                    "cpf_collection_position IS DISTINCT FROM 'AfterPhone' OR (phone_identifier_enabled AND phone_identifier_required)");
             });
         builder.HasKey(environment => environment.Id).HasName("pk_app_environments");
         builder.Property(environment => environment.Id)
@@ -152,6 +155,14 @@ internal sealed class AppEnvironmentEntityConfiguration : IEntityTypeConfigurati
         builder.Property(environment => environment.EmailVerificationProvider)
             .HasColumnName("email_verification_provider")
             .HasMaxLength(TopologyValue.KeyMaxLength);
+        builder.Property(environment => environment.CpfIdentifierEnabled)
+            .HasColumnName("cpf_identifier_enabled");
+        builder.Property(environment => environment.CpfIdentifierRequired)
+            .HasColumnName("cpf_identifier_required");
+        builder.Property(environment => environment.CpfCollectionPosition)
+            .HasColumnName("cpf_collection_position")
+            .HasConversion<string>()
+            .HasMaxLength(32);
         builder.Property(environment => environment.PhoneIdentifierEnabled)
             .HasColumnName("phone_identifier_enabled");
         builder.Property(environment => environment.PhoneIdentifierRequired)

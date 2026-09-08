@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace Bullgate.Access.Application.Flows;
 
 /// <summary>
-/// Stable wire vocabulary for AccessFlow protocol version 1.
+/// Stable wire vocabulary for supported AccessFlow protocol versions.
 /// </summary>
 /// <remarks>
 /// Consumers must compare these values exactly and execute only actions present in
@@ -12,14 +12,20 @@ namespace Bullgate.Access.Application.Flows;
 /// </remarks>
 public static class AccessFlowProtocol
 {
-    /// <summary>The only protocol revision implemented by this service version.</summary>
+    /// <summary>Initial phone-registration and phone-management protocol revision.</summary>
     public const int Version1 = 1;
+
+    /// <summary>Adds required CPF and birth-date collection during registration.</summary>
+    public const int Version2 = 2;
 
     /// <summary>Intent that finishes an already authenticated registration journey.</summary>
     public const string ContinueRegistrationIntent = "continueRegistration";
 
     /// <summary>Intent that changes phone state for an authenticated product identity.</summary>
     public const string ManagePhoneIntent = "managePhone";
+
+    /// <summary>Step in which required CPF and birth-date data are collected together.</summary>
+    public const string CollectCpfStep = "collectCpf";
 
     /// <summary>Step in which the server permits phone collection or an offered skip.</summary>
     public const string CollectPhoneStep = "collectPhone";
@@ -32,6 +38,9 @@ public static class AccessFlowProtocol
 
     /// <summary>Action that validates a phone and reserves external OTP delivery.</summary>
     public const string RequestPhoneVerificationAction = "requestPhoneVerification";
+
+    /// <summary>Action that validates and stores required CPF and birth-date data.</summary>
+    public const string SubmitCpfAction = "submitCpf";
 
     /// <summary>Action used when policy permits phone collection without verification.</summary>
     public const string SubmitPhoneAction = "submitPhone";

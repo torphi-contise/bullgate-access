@@ -36,6 +36,12 @@ Do not track either value. Do not expose them to a browser or mobile app.
 
 ## Manifest version 2
 
+The optional `Bullgate__Admin__CredentialSha256` setting enables only the
+separate administrative scheme. It is a 64-hex-character verifier of a random
+32-byte Admin service secret, not the master key. See [administration](administration.md)
+for trust, configuration-target revisions and complete JSON replacement. This
+slice does not provision real credentials or change CLI writer ownership.
+
 The CLI accepts a strict, case-sensitive JSON manifest with
 `manifestVersion: 2`. Unknown properties are rejected. One manifest defines:
 
@@ -51,6 +57,20 @@ The CLI accepts one exact command form and one manifest path. Missing nested val
 null collections, a non-object public-configuration value, unsupported platform text,
 and domain-policy violations are rejected before the bootstrap transaction begins.
 Platform wire values are the lowercase strings `android`, `ios`, and `web`.
+
+`accessPolicy.identifiers.cpf` controls the linked collection of CPF and birth
+date. The block may be omitted by older manifests, which is equivalent to a
+disabled policy. When present and enabled, `required` must be `true` and
+verification must remain disabled: this flow validates CPF structure and stores
+the value, but it does not claim independent CPF ownership proof.
+
+When CPF is enabled, `accessPolicy.cpfCollectionPosition` must explicitly be
+`beforePhone` or `afterPhone`; no collection order is selected implicitly.
+`afterPhone` requires `identifiers.phone.enabled: true` and
+`identifiers.phone.required: true`. The domain policy rejects other combinations,
+and PostgreSQL enforces the same after-phone constraint. This ordering rule does
+not require phone verification to be enabled. CPF-disabled manifests may omit
+the position.
 
 Apply a manifest with:
 

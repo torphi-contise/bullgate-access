@@ -26,6 +26,7 @@ internal sealed class IdentityConfiguration : IEntityTypeConfiguration<Identity>
             .HasMaxLength(32)
             .HasDefaultValue(IdentityLifecycleState.Active)
             .IsRequired();
+        builder.Property(identity => identity.BirthDate).HasColumnName("birth_date");
         builder.Property(identity => identity.CreatedAt).HasColumnName("created_at");
         builder.HasAlternateKey(identity => new { identity.RealmId, identity.Id })
             .HasName("ak_identities_realm_id");
@@ -40,7 +41,7 @@ internal sealed class IdentityConfiguration : IEntityTypeConfiguration<Identity>
 }
 
 /// <summary>
-/// Maps normalized e-mail and phone identifiers with realm ownership and optional
+/// Maps normalized e-mail, CPF, and phone identifiers with realm ownership and optional
 /// possession-verification evidence.
 /// </summary>
 internal sealed class IdentityIdentifierConfiguration

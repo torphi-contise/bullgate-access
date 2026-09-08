@@ -231,27 +231,7 @@ internal sealed class CurrentIdentityStore(AccessDbContext dbContext)
             return false;
         }
 
-        var affectedFlowIds = await dbContext.AccessFlowDataSubjects.AsNoTracking()
-            .Where(subject => subject.RealmId == realmId
-                && subject.IdentityId == identity.Id)
-            .Select(subject => subject.FlowId)
-            .ToArrayAsync(cancellationToken);
-        // Data-subject links are append-only erasure reachability. Delete the complete
-        // flow when any linked identity is erased because historical snapshots may
-        // contain that identity's personal data (ACCESS-016).
-        // Deleting the flow root cascades through data-subject links, immutable
-        // revisions, idempotency requests, proof challenges and attempts, durable
-        // proofs, and phone-conflict evidence. It intentionally does not delete other
-        // identities merely because their data is described by the same flow.
-        await dbContext.AccessFlows
-            .Where(flow => affectedFlowIds.Contains(flow.Id))
-            .ExecuteDeleteAsync(cancellationToken);
-        // Identity-owned identifiers, authenticators, sessions, and recovery artifacts
-        // use database cascades. Topology remains protected by restrictive relationships
-        // because erasure removes personal identity data, not installation configuration.
-        var deleted = await dbContext.Identities
-            .Where(item => item.Id == identity.Id && item.RealmId == realmId)
-            .ExecuteDeleteAsync(cancellationToken);
+        var deleted = await IdentityErasure.DeleteGraphAsync(dbContext, realmId, identity.Id, cancellationToken);
 
         // No success is observable until both flow erasure and identity erasure share
         // this commit. An exception or cancellation before commit leaves neither half

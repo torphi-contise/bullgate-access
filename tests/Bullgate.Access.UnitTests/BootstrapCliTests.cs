@@ -1,6 +1,8 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Bullgate.Access.Application.Bootstrap;
 using Bullgate.Access.Cli;
+using Bullgate.Access.Domain.Topology;
 
 namespace Bullgate.Access.UnitTests;
 
@@ -199,6 +201,56 @@ public sealed class BootstrapCliTests : IDisposable
 
         Assert.Equal(0, exitCode);
         Assert.Equal(cancellation.Token, observed);
+    }
+
+    [Theory]
+    [InlineData("beforePhone", CpfCollectionPosition.BeforePhone)]
+    [InlineData("afterPhone", CpfCollectionPosition.AfterPhone)]
+    public async Task RunAsync_WithCpfPosition_ConvertsExplicitOrder(
+        string position, CpfCollectionPosition expected)
+    {
+        BootstrapTopologyCommand? captured = null;
+        var manifest = await CreateCpfManifestAsync(position, true, true);
+        var exitCode = await RunAsync(Arguments(manifest), (command, _) =>
+        {
+            captured = command;
+            return Task.FromResult(CreateResult());
+        });
+
+        Assert.Equal(0, exitCode);
+        Assert.NotNull(captured);
+        Assert.Equal(expected, captured.Apps[0].Environments[0].AccessPolicy.CpfCollectionPosition);
+    }
+
+    [Theory]
+    [InlineData(null, true, true)]
+    [InlineData("unknown", true, true)]
+    [InlineData("afterPhone", false, false)]
+    [InlineData("afterPhone", true, false)]
+    public async Task RunAsync_WithInvalidCpfPosition_RejectsBeforeExecution(
+        string? position, bool phoneEnabled, bool phoneRequired)
+    {
+        var manifest = await CreateCpfManifestAsync(position, phoneEnabled, phoneRequired);
+        var exitCode = await RunAsync(Arguments(manifest), NotExecuted);
+        Assert.Equal(2, exitCode);
+        Assert.Contains("Invalid access policy", error.ToString());
+    }
+
+    private static async Task<string> CreateCpfManifestAsync(
+        string? position, bool phoneEnabled, bool phoneRequired)
+    {
+        var manifest = JsonNode.Parse(await File.ReadAllTextAsync("bootstrap.development.example.json"))!;
+        var policy = manifest["workspace"]!["apps"]![0]!["environments"]![0]!["accessPolicy"]!;
+        policy["cpfCollectionPosition"] = position;
+        var identifiers = policy["identifiers"]!;
+        identifiers["cpf"] = JsonSerializer.SerializeToNode(new
+        {
+            enabled = true, required = true, verification = new { enabled = false },
+        });
+        identifiers["phone"]!["enabled"] = phoneEnabled;
+        identifiers["phone"]!["required"] = phoneRequired;
+        identifiers["phone"]!["verification"] = JsonSerializer.SerializeToNode(new { enabled = false });
+        return manifest.ToJsonString();
     }
 
     private static Task<BootstrapTopologyResult> NotExecuted(

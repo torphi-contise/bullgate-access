@@ -32,6 +32,8 @@ public static class IdentifierScheme
 {
     /// <summary>Canonical e-mail identifier discriminator.</summary>
     public const string Email = "email";
+    /// <summary>Canonical Brazilian CPF identifier discriminator.</summary>
+    public const string Cpf = "cpf";
     /// <summary>Canonical phone identifier discriminator.</summary>
     public const string Phone = "phone";
 }

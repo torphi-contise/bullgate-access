@@ -31,9 +31,11 @@ or identity reference does not elevate access.
 
 ### Input rejection
 
-Missing fields, invalid email/phone syntax, unsupported protocol versions, invalid
-application-client keys, and short passwords are caller-correctable. Do not retry
-unchanged input.
+Missing fields, invalid email/CPF/phone syntax, invalid or future birth dates,
+unsupported protocol versions, invalid application-client keys, and short passwords
+are caller-correctable. Do not retry unchanged input. CPF and birth-date validation
+inside an active flow returns `invalid-cpf` or `invalid-birth-date` feedback on the
+current step rather than partially storing either value.
 
 For bootstrap, strict JSON/manifest, topology, policy, provider, and client-metadata
 violations are rejected before the database transaction begins. This guarantees no

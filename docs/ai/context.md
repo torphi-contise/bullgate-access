@@ -20,6 +20,13 @@ producing a detailed answer.
 
 ## Product identity
 
+The Access-owned `/admin/v1` backend is implemented under approved ADMIN-057;
+see [administration](../administration.md) for the exact trust/permission/receipt
+contract. It lists/inspects identities, revokes all current sessions, erases the
+Access graph and replaces complete configuration JSON. Consumer authentication
+is unchanged. The real Admin client, current-profile evaluation, human grants
+and screens remain unimplemented 009 work. Do not claim an available Admin module.
+
 Bullgate Access is a self-hosted, server-side identity and access service. It is
 one component of the Bullgate platform. It is not a module of its first
 consumer and it does not own consumer business data.
@@ -40,7 +47,8 @@ consumer and it does not own consumer business data.
 12. Phone confirmation in `AccessFlow` uses the local OTP hash as authority.
 13. Hard deletion does not depend on provider availability.
 14. Access and consumer databases do not share a distributed transaction.
-15. The baseline has no Bullgate admin portal or administrative API.
+15. Access has a separate administrative backend, not an operator profile database
+    or Admin portal. Its real Admin caller/profile integration and screens remain 009.
 16. Previous-identity recovery sends reset authority to the stored earlier identity,
     abandons the provisional registration only after successful finalization, never
     merges identities, and does not issue a product session.

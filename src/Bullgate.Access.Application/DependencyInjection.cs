@@ -1,3 +1,4 @@
+using Bullgate.Access.Application.Administration;
 using Bullgate.Access.Application.Bootstrap;
 using Bullgate.Access.Application.Configuration;
 using Bullgate.Access.Application.EmailPassword;
@@ -20,6 +21,7 @@ public static class DependencyInjection
     {
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<BootstrapTopologyHandler>();
+        services.AddScoped<AccessAdministrationService>();
         services.AddScoped<EmailPasswordAccessService>();
         services.AddScoped<SocialAccessService>();
         services.AddScoped<AccessFlowService>();

@@ -1,3 +1,4 @@
+using Bullgate.Access.Application.Administration;
 using Bullgate.Access.Application.Bootstrap;
 using Bullgate.Access.Application.Configuration;
 using Bullgate.Access.Application.Cryptography;
@@ -8,6 +9,7 @@ using Bullgate.Access.Application.IntegrationClients;
 using Bullgate.Access.Application.Policies;
 using Bullgate.Access.Application.Recovery;
 using Bullgate.Access.Application.Social;
+using Bullgate.Access.Infrastructure.Administration;
 using Bullgate.Access.Infrastructure.Bootstrap;
 using Bullgate.Access.Infrastructure.Configuration;
 using Bullgate.Access.Infrastructure.Cryptography;
@@ -71,6 +73,7 @@ public static class DependencyInjection
             IAppEnvironmentConfigurationReader,
             AppEnvironmentConfigurationReader>();
         services.AddScoped<IAccessTopologyStore, AccessTopologyStore>();
+        services.AddScoped<IAccessAdministrationStore, AccessAdministrationStore>();
         services.AddScoped<IEmailPasswordAccessStore, EmailPasswordAccessStore>();
         services.AddScoped<ISocialAccessStore, SocialAccessStore>();
         services.AddScoped<IAccessFlowStore, AccessFlowStore>();

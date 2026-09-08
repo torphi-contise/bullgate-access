@@ -233,7 +233,8 @@ public sealed class EmailPasswordAccessService(
             appEnvironmentId,
             identityId,
             now);
-        var requiresRegistrationFlow = policy.Phone.Enabled
+        var requiresRegistrationFlow = policy.Cpf.Enabled
+            || policy.Phone.Enabled
             || policy.Email.Verification.Enabled;
         // A registration-purpose session cannot authorize product APIs. Promote it
         // immediately only when policy leaves no registration work to complete.

@@ -92,6 +92,13 @@ public interface IAccessFlowStore
         string normalizedPhone,
         CancellationToken cancellationToken);
 
+    /// <summary>Reads the current realm owner of one normalized identifier value.</summary>
+    Task<Guid?> FindIdentifierOwnerAsync(
+        Guid realmId,
+        string scheme,
+        string normalizedValue,
+        CancellationToken cancellationToken);
+
     /// <summary>
     /// Performs the advisory read used to plan resume or exact stale-flow expiration.
     /// <see cref="TryCreateAsync"/> remains authoritative for active-slot ownership.
@@ -145,6 +152,13 @@ public interface IAccessFlowStore
     /// </summary>
     Task<AccessFlowCommitStatus> TryAdvanceAsync(
         AdvanceAccessFlowCommand command,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stores phone, or CPF and birth date together, while advancing an unfinished registration.
+    /// </summary>
+    Task<AccessFlowCommitStatus> TryAdvanceRegistrationWithIdentifierAsync(
+        AdvanceRegistrationWithIdentifierFlowCommand command,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -495,7 +509,8 @@ public sealed record CompleteRegistrationFlowCommand(
     string SnapshotJson,
     IdentityIdentifier? Identifier,
     IdentitySession ProductSession,
-    DateTimeOffset CompletedAt);
+    DateTimeOffset CompletedAt,
+    DateOnly? BirthDate = null);
 
 /// <summary>
 /// Carries the selected normalized phone and server-issued product session required to
@@ -520,6 +535,18 @@ public sealed record AdvanceAccessFlowCommand(
     byte[] PayloadHash,
     int ExpectedRevision,
     string SnapshotJson,
+    DateTimeOffset AdvancedAt);
+
+/// <summary>Persists a collected identifier and accompanying birth date before the next step.</summary>
+public sealed record AdvanceRegistrationWithIdentifierFlowCommand(
+    AccessFlowScope Scope,
+    Guid FlowId,
+    Guid RequestId,
+    byte[] PayloadHash,
+    int ExpectedRevision,
+    string SnapshotJson,
+    IdentityIdentifier Identifier,
+    DateOnly? BirthDate,
     DateTimeOffset AdvancedAt);
 
 /// <summary>Reserves a new proof challenge before the external delivery effect.</summary>
@@ -609,7 +636,8 @@ public sealed record ConfirmPhoneFlowCommand(
     IdentityProof Proof,
     PhoneRegistrationConflict? PhoneConflict,
     IdentitySession? ProductSession,
-    DateTimeOffset ConfirmedAt);
+    DateTimeOffset ConfirmedAt,
+    bool ContinueRegistration = false);
 
 /// <summary>Records one failed previous-e-mail knowledge check during conflict resolution.</summary>
 public sealed record RecordPhoneConflictEmailFailureFlowCommand(
@@ -638,8 +666,9 @@ public sealed record TransferPhoneFlowCommand(
     int MaxAttempts,
     Guid ExpectedPreviousIdentityId,
     string NormalizedPreviousEmail,
-    IdentitySession ProductSession,
-    DateTimeOffset CompletedAt);
+    IdentitySession? ProductSession,
+    DateTimeOffset CompletedAt,
+    bool ContinueRegistration = false);
 
 /// <summary>Returns an unresolved conflict journey to phone collection.</summary>
 public sealed record ChangePhoneFlowCommand(

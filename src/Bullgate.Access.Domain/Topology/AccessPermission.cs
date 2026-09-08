@@ -1,7 +1,7 @@
 namespace Bullgate.Access.Domain.Topology;
 
 /// <summary>
-/// Stable permission names granted to server-side integration clients.
+/// Stable Access-owned permission names, with separate allowed caller vocabularies.
 /// </summary>
 /// <remarks>
 /// Defining a constant does not expose an HTTP operation. Endpoint mapping must opt
@@ -24,8 +24,25 @@ public static class AccessPermission
     public const string BlockIdentities = "access:identities:block";
     /// <summary>Reserved vocabulary for unblocking scoped identities.</summary>
     public const string UnblockIdentities = "access:identities:unblock";
-    /// <summary>Reserved vocabulary for revoking every session of a scoped identity.</summary>
+    /// <summary>Revokes all current identity sessions through administrative authentication only.</summary>
     public const string RevokeAllSessions = "access:sessions:revoke-all";
+
+    /// <summary>Enumerates identities through the trusted Admin service.</summary>
+    public const string ListIdentities = "access:identities:list";
+    /// <summary>Erases the selected Access identity through the trusted Admin service.</summary>
+    public const string DeleteIdentities = "access:identities:delete";
+    /// <summary>Reads target revisions and replaces complete environment configuration.</summary>
+    public const string ManageConfiguration = "access:configuration:manage";
+
+    /// <summary>Exact administrative functions; this does not widen consumer grants.</summary>
+    public static IReadOnlyList<string> Administrative { get; } = Array.AsReadOnly(
+    [
+        ListIdentities,
+        ReadIdentities,
+        RevokeAllSessions,
+        DeleteIdentities,
+        ManageConfiguration,
+    ]);
 
     /// <summary>Closed permission vocabulary accepted in persisted integration clients.</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(

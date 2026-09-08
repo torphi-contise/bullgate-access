@@ -651,9 +651,10 @@ public sealed class SocialAccessService(
             appEnvironmentId,
             identityId,
             now);
-        // Social registration already supplies the accepted e-mail claim. Only an
-        // enabled phone journey keeps the initial session in registration purpose.
-        var requiresRegistrationFlow = policy.Phone.Enabled;
+        // Social registration already supplies the accepted e-mail claim. Required
+        // civil data or an enabled phone journey keeps the initial session restricted
+        // until the server-owned registration flow completes.
+        var requiresRegistrationFlow = policy.Cpf.Enabled || policy.Phone.Enabled;
         if (!requiresRegistrationFlow)
         {
             registrationContext.Complete(now);

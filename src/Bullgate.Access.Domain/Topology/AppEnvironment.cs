@@ -74,6 +74,15 @@ public sealed class AppEnvironment
     /// <summary>Selected e-mail verification adapter key, when enabled.</summary>
     public string? EmailVerificationProvider { get; private set; }
 
+    /// <summary>Queryable switch for CPF and birth-date collection.</summary>
+    public bool CpfIdentifierEnabled { get; private set; }
+
+    /// <summary>Whether registration must collect CPF and birth date when enabled.</summary>
+    public bool CpfIdentifierRequired { get; private set; }
+
+    /// <summary>Position of the combined CPF and birth-date registration step.</summary>
+    public CpfCollectionPosition? CpfCollectionPosition { get; private set; }
+
     /// <summary>Queryable switch for phone identity operations.</summary>
     public bool PhoneIdentifierEnabled { get; private set; }
 
@@ -136,7 +145,12 @@ public sealed class AppEnvironment
         new AuthenticatorAccessPolicy(
             PasswordAuthenticatorEnabled,
             GoogleAuthenticatorEnabled,
-            AppleAuthenticatorEnabled));
+            AppleAuthenticatorEnabled),
+        new IdentifierAccessPolicy(
+            CpfIdentifierEnabled,
+            CpfIdentifierRequired,
+            IdentifierVerificationPolicy.Disabled),
+        CpfCollectionPosition);
 
     /// <summary>Replaces the queryable access policy for this environment.</summary>
     public void ConfigureAccess(AppAccessPolicy accessPolicy) => Apply(accessPolicy);
@@ -191,6 +205,9 @@ public sealed class AppEnvironment
         EmailIdentifierRequired = accessPolicy.Email.Required;
         EmailVerificationEnabled = accessPolicy.Email.Verification.Enabled;
         EmailVerificationProvider = accessPolicy.Email.Verification.Provider;
+        CpfIdentifierEnabled = accessPolicy.Cpf.Enabled;
+        CpfIdentifierRequired = accessPolicy.Cpf.Required;
+        CpfCollectionPosition = accessPolicy.CpfCollectionPosition;
         PhoneIdentifierEnabled = accessPolicy.Phone.Enabled;
         PhoneIdentifierRequired = accessPolicy.Phone.Required;
         PhoneVerificationEnabled = accessPolicy.Phone.Verification.Enabled;

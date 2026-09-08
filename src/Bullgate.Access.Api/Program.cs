@@ -11,6 +11,7 @@ builder.Services.AddAccessApplication();
 builder.Services.AddAccessInfrastructure(builder.Configuration);
 builder.Services.AddAccessFlowTokenProtection();
 builder.Services.AddIntegrationClientAuthentication();
+builder.Services.AddAdminServiceAuthentication();
 
 var app = builder.Build();
 
@@ -34,6 +35,7 @@ app.MapPhonePasswordRecoveryEndpoints();
 app.MapSocialAccessEndpoints();
 app.MapAccessFlowEndpoints();
 app.MapApplicationClientConfigurationEndpoints();
+app.MapAccessAdministrationEndpoints();
 
 app.Run();
 

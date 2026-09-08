@@ -11,6 +11,14 @@ an assistant. The executable source and database mappings remain authoritative.
 
 ## Contract in one paragraph
 
+The original consumer contract below is unchanged. A separate
+[administrative entry](administration.md) now authorizes an explicit identity
+target with `access:identities:delete` and trusted Admin context. Both entries
+share the same graph-erasure effect below their caller-specific gate. The Admin
+entry commits a secret-free, non-cascading operation receipt and supports exact
+operation-id replay after erasure; the consumer bearer retry remains as described
+below. Neither deletes consumer or provider data.
+
 An authenticated integration client with `access:identities:manage-current` submits an
 opaque product-session bearer. The bearer selects the identity; the integration
 credential fixes the only acceptable realm and app environment. Inside one Access
